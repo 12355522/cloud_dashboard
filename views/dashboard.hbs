@@ -115,12 +115,26 @@
                                         {{#each this.sensors}}
                                         <div class="carousel-sensor-marker" 
                                              style="left: {{this.x}}%; top: {{this.y}}%;"
-                                             data-sensor-id="{{this.id}}"
-                                             data-bs-toggle="tooltip" 
-                                             data-bs-placement="top" 
-                                             title="{{this.name}}{{#if this.lastValue.currentValues}} - {{#each this.lastValue.currentValues}}{{this.value}}{{this.unit}}{{#unless @last}} / {{/unless}}{{/each}}{{/if}}">
-                                            <div class="sensor-indicator {{#if this.lastValue.currentValues}}active{{else}}inactive{{/if}}">
-                                                <i class="fas fa-circle"></i>
+                                             data-sensor-id="{{this.id}}">
+                                            <div class="sensor-card {{#if this.lastValue.currentValues}}active{{else}}inactive{{/if}}">
+                                                <div class="sensor-icon">
+                                                    <i class="fas fa-thermometer-half"></i>
+                                                </div>
+                                                <div class="sensor-info">
+                                                    <div class="sensor-name">{{this.name}}</div>
+                                                    {{#if this.lastValue.currentValues}}
+                                                    <div class="sensor-values">
+                                                        {{#each this.lastValue.currentValues}}
+                                                        <div class="sensor-value">
+                                                            <span class="value">{{this.value}}</span>
+                                                            <span class="unit">{{this.unit}}</span>
+                                                        </div>
+                                                        {{/each}}
+                                                    </div>
+                                                    {{else}}
+                                                    <div class="sensor-status">離線</div>
+                                                    {{/if}}
+                                                </div>
                                             </div>
                                         </div>
                                         {{/each}}
@@ -130,12 +144,12 @@
                                     <div class="carousel-devices-overlay">
                                         {{#each this.devices}}
                                         <div class="carousel-device-marker" 
-                                             style="left: {{this.x}}%; top: {{this.y}}%;"
-                                             data-bs-toggle="tooltip" 
-                                             data-bs-placement="top" 
-                                             title="{{this.name}}">
-                                            <div class="device-indicator">
-                                                <i class="fas fa-square"></i>
+                                             style="left: {{this.x}}%; top: {{this.y}}%;">
+                                            <div class="device-card">
+                                                <div class="device-icon">
+                                                    <i class="fas fa-cog"></i>
+                                                </div>
+                                                <div class="device-name">{{this.name}}</div>
                                             </div>
                                         </div>
                                         {{/each}}
@@ -376,40 +390,131 @@
     z-index: 10;
 }
 
-.sensor-indicator,
-.device-indicator {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
+/* 精美的感測器卡片 */
+.sensor-card {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 8px;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    border-radius: 12px;
+    padding: 8px 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    min-width: 120px;
     transition: all 0.3s ease;
 }
 
-.sensor-indicator.active {
-    background-color: #28a745;
-    color: white;
-    animation: pulse-green 2s infinite;
+.sensor-card.active {
+    border-left: 4px solid #28a745;
+    animation: card-glow-green 3s infinite;
 }
 
-.sensor-indicator.inactive {
-    background-color: #6c757d;
-    color: white;
+.sensor-card.inactive {
+    border-left: 4px solid #6c757d;
+    opacity: 0.8;
 }
 
-.device-indicator {
-    background-color: #fd7e14;
-    color: white;
-    border-radius: 3px;
+.sensor-icon {
+    margin-right: 8px;
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
 }
 
-@keyframes pulse-green {
-    0%, 100% { box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-    50% { box-shadow: 0 2px 4px rgba(0,0,0,0.2), 0 0 8px rgba(40, 167, 69, 0.6); }
+.sensor-card.active .sensor-icon {
+    color: #28a745;
+}
+
+.sensor-card.inactive .sensor-icon {
+    color: #6c757d;
+}
+
+.sensor-info {
+    flex: 1;
+}
+
+.sensor-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 2px;
+    line-height: 1.2;
+}
+
+.sensor-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.sensor-value {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+}
+
+.sensor-value .value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #007bff;
+}
+
+.sensor-value .unit {
+    font-size: 10px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.sensor-status {
+    font-size: 10px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* 精美的設備卡片 */
+.device-card {
+    display: flex;
+    align-items: center;
+    background: rgba(253, 126, 20, 0.95);
+    backdrop-filter: blur(12px);
+    border-radius: 10px;
+    padding: 6px 10px;
+    box-shadow: 0 4px 16px rgba(253, 126, 20, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    min-width: 100px;
+    transition: all 0.3s ease;
+}
+
+.device-icon {
+    margin-right: 6px;
+    font-size: 16px;
+}
+
+.device-name {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+@keyframes card-glow-green {
+    0%, 100% { 
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    50% { 
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15), 0 0 12px rgba(40, 167, 69, 0.3);
+    }
+}
+
+/* 懸停效果增強 */
+.sensor-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+}
+
+.device-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(253, 126, 20, 0.35);
 }
 
 .carousel-info-overlay {
@@ -420,44 +525,101 @@
 }
 
 .farm-info-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    min-width: 200px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 249, 250, 0.95) 100%);
+    backdrop-filter: blur(16px);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    min-width: 280px;
+    transition: all 0.3s ease;
+}
+
+.farm-info-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+}
+
+.farm-info-header {
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
 }
 
 .farm-info-header h6 {
     color: #2c3e50;
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.farm-info-header small {
+    color: #007bff;
+    font-weight: 500;
+    background: rgba(0, 123, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
 }
 
 .farm-info-stats {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
-    margin: 12px 0;
+    margin: 16px 0;
 }
 
 .stat-item {
     text-align: center;
-    flex: 1;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    padding: 12px 8px;
+    transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+    background: rgba(255, 255, 255, 0.8);
+    transform: scale(1.05);
 }
 
 .stat-value {
     display: block;
-    font-size: 1.5em;
-    font-weight: bold;
+    font-size: 1.8em;
+    font-weight: 800;
     color: #007bff;
     line-height: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .stat-label {
     display: block;
-    font-size: 0.8em;
+    font-size: 0.75em;
     color: #6c757d;
-    margin-top: 2px;
+    margin-top: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.farm-info-actions {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.farm-info-actions .btn {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.farm-info-actions .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 123, 255, 0.4);
 }
 
 .no-layout-placeholder {
@@ -614,11 +776,7 @@ function initCarousel() {
         console.log('🔄 輪播切換到第', currentSlide, '張');
     });
     
-    // 初始化工具提示
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
+    // 輪播專為展示設計，無需工具提示
     
     // 輪播自動更新感測器資料
     startCarouselDataRefresh();
@@ -671,21 +829,49 @@ function updateCarouselSensorData(farmsData) {
     farmsData.forEach(farm => {
         const farmSlide = document.querySelector('[data-farm-id="' + farm._id + '"]');
         if (farmSlide) {
-            // 更新感測器指示器
+            // 更新感測器卡片
             farm.sensors.forEach(sensor => {
                 const sensorMarker = farmSlide.querySelector('[data-sensor-id="' + sensor.id + '"]');
                 if (sensorMarker) {
-                    const indicator = sensorMarker.querySelector('.sensor-indicator');
-                    if (sensor.lastValue && sensor.lastValue.currentValues) {
-                        indicator.classList.remove('inactive');
-                        indicator.classList.add('active');
+                    const sensorCard = sensorMarker.querySelector('.sensor-card');
+                    const sensorValues = sensorMarker.querySelector('.sensor-values');
+                    const sensorStatus = sensorMarker.querySelector('.sensor-status');
+                    
+                    if (sensor.lastValue && sensor.lastValue.currentValues && sensor.lastValue.currentValues.length > 0) {
+                        // 更新為活躍狀態
+                        sensorCard.classList.remove('inactive');
+                        sensorCard.classList.add('active');
                         
-                        // 更新工具提示
-                        const tooltip = bootstrap.Tooltip.getInstance(sensorMarker);
-                        if (tooltip) {
-                            const valueText = sensor.lastValue.currentValues.map(v => v.value + v.unit).join(' / ');
-                            sensorMarker.setAttribute('title', sensor.name + ' - ' + valueText);
-                            tooltip.setContent({ '.tooltip-inner': sensor.name + ' - ' + valueText });
+                        // 更新數值顯示
+                        if (sensorValues) {
+                            sensorValues.innerHTML = '';
+                            sensor.lastValue.currentValues.forEach(value => {
+                                const valueDiv = document.createElement('div');
+                                valueDiv.className = 'sensor-value';
+                                valueDiv.innerHTML = '<span class="value">' + value.value + '</span>' +
+                                                   '<span class="unit">' + value.unit + '</span>';
+                                sensorValues.appendChild(valueDiv);
+                            });
+                            sensorValues.style.display = 'flex';
+                        }
+                        
+                        // 隱藏離線狀態
+                        if (sensorStatus) {
+                            sensorStatus.style.display = 'none';
+                        }
+                    } else {
+                        // 更新為非活躍狀態
+                        sensorCard.classList.remove('active');
+                        sensorCard.classList.add('inactive');
+                        
+                        // 隱藏數值顯示
+                        if (sensorValues) {
+                            sensorValues.style.display = 'none';
+                        }
+                        
+                        // 顯示離線狀態
+                        if (sensorStatus) {
+                            sensorStatus.style.display = 'block';
                         }
                     }
                 }
