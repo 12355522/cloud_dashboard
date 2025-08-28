@@ -495,6 +495,29 @@ app.get('/api/farms/:id/sensors', async (req, res) => {
     }
 });
 
+// 輪播感測器資料 API
+app.get('/api/dashboard/carousel-data', async (req, res) => {
+    try {
+        const farms = await Farm.find({}).lean();
+        
+        // 返回輪播需要的資料
+        const carouselData = farms.map(farm => ({
+            _id: farm._id,
+            name: farm.name,
+            sensors: farm.sensors.map(sensor => ({
+                id: sensor.id,
+                name: sensor.name,
+                lastValue: sensor.lastValue
+            }))
+        }));
+        
+        res.json(carouselData);
+    } catch (error) {
+        console.error('取得輪播資料失敗:', error);
+        res.status(500).json({ error: '取得輪播資料失敗: ' + error.message });
+    }
+});
+
 // 錯誤處理頁面
 app.use((req, res) => {
     res.status(404).render('error', { error: '頁面不存在' });

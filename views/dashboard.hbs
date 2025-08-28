@@ -76,6 +76,130 @@
     </div>
 </div>
 
+<!-- 場域佈局圖輪播 -->
+{{#if farms}}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-images me-2"></i>場域佈局圖輪播
+                </h5>
+                <div class="d-flex align-items-center">
+                    <small class="text-muted me-3" id="carouselInfo">1 / {{farms.length}}</small>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" id="carouselPrev">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="carouselNext">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="carouselToggle">
+                            <i class="fas fa-pause" id="carouselIcon"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="farmLayoutCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+                    <div class="carousel-inner">
+                        {{#each farms}}
+                        <div class="carousel-item {{#if @first}}active{{/if}}" data-farm-id="{{this._id}}">
+                            <div class="farm-carousel-slide">
+                                {{#if this.layout_image}}
+                                <div class="carousel-image-container">
+                                    <img src="/uploads/{{this.layout_image}}" alt="{{this.name}} 佈局圖" class="carousel-farm-image">
+                                    
+                                    <!-- 感測器標記 -->
+                                    <div class="carousel-sensors-overlay">
+                                        {{#each this.sensors}}
+                                        <div class="carousel-sensor-marker" 
+                                             style="left: {{this.x}}%; top: {{this.y}}%;"
+                                             data-sensor-id="{{this.id}}"
+                                             data-bs-toggle="tooltip" 
+                                             data-bs-placement="top" 
+                                             title="{{this.name}}{{#if this.lastValue.currentValues}} - {{#each this.lastValue.currentValues}}{{this.value}}{{this.unit}}{{#unless @last}} / {{/unless}}{{/each}}{{/if}}">
+                                            <div class="sensor-indicator {{#if this.lastValue.currentValues}}active{{else}}inactive{{/if}}">
+                                                <i class="fas fa-circle"></i>
+                                            </div>
+                                        </div>
+                                        {{/each}}
+                                    </div>
+                                    
+                                    <!-- 設備標記 -->
+                                    <div class="carousel-devices-overlay">
+                                        {{#each this.devices}}
+                                        <div class="carousel-device-marker" 
+                                             style="left: {{this.x}}%; top: {{this.y}}%;"
+                                             data-bs-toggle="tooltip" 
+                                             data-bs-placement="top" 
+                                             title="{{this.name}}">
+                                            <div class="device-indicator">
+                                                <i class="fas fa-square"></i>
+                                            </div>
+                                        </div>
+                                        {{/each}}
+                                    </div>
+                                </div>
+                                {{else}}
+                                <div class="no-layout-placeholder">
+                                    <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                                    <h5 class="text-muted">尚未上傳佈局圖</h5>
+                                </div>
+                                {{/if}}
+                                
+                                <!-- 場域資訊卡片 -->
+                                <div class="carousel-info-overlay">
+                                    <div class="farm-info-card">
+                                        <div class="farm-info-header">
+                                            <h6 class="mb-1">
+                                                <i class="fas fa-map-marker-alt me-2"></i>{{this.name}}
+                                            </h6>
+                                            <small class="text-muted">IP: {{this.ip}}</small>
+                                        </div>
+                                        <div class="farm-info-stats">
+                                            <div class="stat-item">
+                                                <span class="stat-value">{{this.stats.animal_count}}</span>
+                                                <span class="stat-label">隻</span>
+                                            </div>
+                                            <div class="stat-item">
+                                                <span class="stat-value">{{this.stats.feeding_days}}</span>
+                                                <span class="stat-label">天</span>
+                                            </div>
+                                            <div class="stat-item">
+                                                <span class="stat-value">{{this.sensors.length}}</span>
+                                                <span class="stat-label">感測器</span>
+                                            </div>
+                                        </div>
+                                        <div class="farm-info-actions">
+                                            <a href="/farms/{{this._id}}" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-eye me-1"></i>查看詳情
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {{/each}}
+                    </div>
+                    
+                    <!-- 輪播指示器 -->
+                    <div class="carousel-indicators">
+                        {{#each farms}}
+                        <button type="button" data-bs-target="#farmLayoutCarousel" data-bs-slide-to="{{@index}}" 
+                                class="{{#if @first}}active{{/if}}" aria-current="{{#if @first}}true{{/if}}" 
+                                aria-label="場域 {{this.name}}">
+                            <span class="indicator-label">{{this.name}}</span>
+                        </button>
+                        {{/each}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{/if}}
+
 <!-- 場域狀態表格 -->
 <div class="row">
     <div class="col-12">
@@ -205,6 +329,182 @@
 .modal-sm {
     max-width: 400px;
 }
+
+/* 輪播樣式 */
+.farm-carousel-slide {
+    position: relative;
+    height: 400px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.carousel-image-container {
+    position: relative;
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.carousel-farm-image {
+    max-width: 100%;
+    max-height: 380px;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.carousel-sensors-overlay,
+.carousel-devices-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.carousel-sensor-marker,
+.carousel-device-marker {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    z-index: 10;
+}
+
+.sensor-indicator,
+.device-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.sensor-indicator.active {
+    background-color: #28a745;
+    color: white;
+    animation: pulse-green 2s infinite;
+}
+
+.sensor-indicator.inactive {
+    background-color: #6c757d;
+    color: white;
+}
+
+.device-indicator {
+    background-color: #fd7e14;
+    color: white;
+    border-radius: 3px;
+}
+
+@keyframes pulse-green {
+    0%, 100% { box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    50% { box-shadow: 0 2px 4px rgba(0,0,0,0.2), 0 0 8px rgba(40, 167, 69, 0.6); }
+}
+
+.carousel-info-overlay {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 20;
+}
+
+.farm-info-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-width: 200px;
+}
+
+.farm-info-header h6 {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.farm-info-stats {
+    display: flex;
+    gap: 16px;
+    margin: 12px 0;
+}
+
+.stat-item {
+    text-align: center;
+    flex: 1;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #007bff;
+    line-height: 1;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+.no-layout-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #6c757d;
+}
+
+.carousel-indicators {
+    bottom: -40px;
+}
+
+.carousel-indicators button {
+    width: 120px;
+    height: 30px;
+    border-radius: 15px;
+    margin: 0 5px;
+    background-color: rgba(0,0,0,0.2);
+    border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.carousel-indicators button.active {
+    background-color: #007bff;
+}
+
+.indicator-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    color: white;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
+}
+
+.carousel-indicators button:hover {
+    background-color: #0056b3;
+}
 </style>
 
 <script>
@@ -255,5 +555,144 @@ document.addEventListener('DOMContentLoaded', function() {
             this.style.transform = 'scale(1)';
         });
     });
+    
+    // 初始化輪播功能
+    initCarousel();
 });
+
+// 輪播功能
+let carouselInstance = null;
+let isCarouselPlaying = true;
+
+function initCarousel() {
+    const carouselElement = document.getElementById('farmLayoutCarousel');
+    if (!carouselElement) return;
+    
+    console.log('🎠 初始化場域佈局圖輪播');
+    
+    // 建立 Bootstrap 輪播實例
+    carouselInstance = new bootstrap.Carousel(carouselElement, {
+        interval: 5000,
+        wrap: true,
+        keyboard: true,
+        pause: 'hover'
+    });
+    
+    // 控制按鈕事件
+    const prevBtn = document.getElementById('carouselPrev');
+    const nextBtn = document.getElementById('carouselNext');
+    const toggleBtn = document.getElementById('carouselToggle');
+    const carouselInfo = document.getElementById('carouselInfo');
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            carouselInstance.prev();
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            carouselInstance.next();
+        });
+    }
+    
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            toggleCarousel();
+        });
+    }
+    
+    // 監聽輪播變化
+    carouselElement.addEventListener('slide.bs.carousel', function(e) {
+        const totalSlides = document.querySelectorAll('.carousel-item').length;
+        const currentSlide = e.to + 1;
+        
+        if (carouselInfo) {
+            carouselInfo.textContent = currentSlide + ' / ' + totalSlides;
+        }
+        
+        console.log('🔄 輪播切換到第', currentSlide, '張');
+    });
+    
+    // 初始化工具提示
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // 輪播自動更新感測器資料
+    startCarouselDataRefresh();
+}
+
+function toggleCarousel() {
+    const toggleBtn = document.getElementById('carouselToggle');
+    const carouselIcon = document.getElementById('carouselIcon');
+    
+    if (isCarouselPlaying) {
+        carouselInstance.pause();
+        isCarouselPlaying = false;
+        if (carouselIcon) {
+            carouselIcon.className = 'fas fa-play';
+        }
+        if (toggleBtn) {
+            toggleBtn.title = '開始播放';
+        }
+        console.log('⏸️ 輪播已暫停');
+    } else {
+        carouselInstance.cycle();
+        isCarouselPlaying = true;
+        if (carouselIcon) {
+            carouselIcon.className = 'fas fa-pause';
+        }
+        if (toggleBtn) {
+            toggleBtn.title = '暫停播放';
+        }
+        console.log('▶️ 輪播已開始');
+    }
+}
+
+function startCarouselDataRefresh() {
+    // 每30秒更新一次感測器資料（比詳細頁面慢一些）
+    setInterval(async () => {
+        try {
+            const response = await fetch('/api/dashboard/carousel-data');
+            if (response.ok) {
+                const data = await response.json();
+                updateCarouselSensorData(data);
+            }
+        } catch (error) {
+            console.error('更新輪播感測器資料失敗:', error);
+        }
+    }, 30000);
+}
+
+function updateCarouselSensorData(farmsData) {
+    // 更新輪播中的感測器狀態
+    farmsData.forEach(farm => {
+        const farmSlide = document.querySelector('[data-farm-id="' + farm._id + '"]');
+        if (farmSlide) {
+            // 更新感測器指示器
+            farm.sensors.forEach(sensor => {
+                const sensorMarker = farmSlide.querySelector('[data-sensor-id="' + sensor.id + '"]');
+                if (sensorMarker) {
+                    const indicator = sensorMarker.querySelector('.sensor-indicator');
+                    if (sensor.lastValue && sensor.lastValue.currentValues) {
+                        indicator.classList.remove('inactive');
+                        indicator.classList.add('active');
+                        
+                        // 更新工具提示
+                        const tooltip = bootstrap.Tooltip.getInstance(sensorMarker);
+                        if (tooltip) {
+                            const valueText = sensor.lastValue.currentValues.map(v => v.value + v.unit).join(' / ');
+                            sensorMarker.setAttribute('title', sensor.name + ' - ' + valueText);
+                            tooltip.setContent({ '.tooltip-inner': sensor.name + ' - ' + valueText });
+                        }
+                    }
+                }
+            });
+        }
+    });
+    
+    console.log('🔄 輪播感測器資料已更新');
+}
 </script>
