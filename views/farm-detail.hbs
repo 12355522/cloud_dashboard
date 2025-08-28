@@ -433,20 +433,20 @@ document.addEventListener('DOMContentLoaded', function() {
             const statusClass = sensor.status === 'online' ? 'text-success' : 'text-secondary';
             
             // 建立感測器標記 HTML
-            let markerHTML = `<div class="sensor-display">
-                <div class="sensor-icon">
-                    <i class="${icon} ${statusClass}"></i>
-                </div>
-                <div class="sensor-name">${sensor.name}</div>`;
+            let markerHTML = '<div class="sensor-display">' +
+                '<div class="sensor-icon">' +
+                    '<i class="' + icon + ' ' + statusClass + '"></i>' +
+                '</div>' +
+                '<div class="sensor-name">' + sensor.name + '</div>';
             
             // 顯示最新數值
             if (sensor.lastValue && sensor.lastValue.currentValues) {
                 markerHTML += '<div class="sensor-values">';
                 sensor.lastValue.currentValues.forEach(value => {
-                    markerHTML += `<div class="sensor-value">
-                        <span class="value">${value.value}</span>
-                        <span class="unit">${value.unit}</span>
-                    </div>`;
+                    markerHTML += '<div class="sensor-value">' +
+                        '<span class="value">' + value.value + '</span>' +
+                        '<span class="unit">' + value.unit + '</span>' +
+                    '</div>';
                 });
                 markerHTML += '</div>';
             }
