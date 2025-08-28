@@ -1,0 +1,196 @@
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-{{#if farm}}edit{{else}}plus{{/if}} me-2"></i>
+                    {{#if farm}}編輯場域{{else}}新增場域{{/if}}
+                </h4>
+            </div>
+            
+            <div class="card-body">
+                <form action="{{action}}" method="{{method}}" id="farmForm">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">場域名稱 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{farm.name}}" required placeholder="例如：養豬場A">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="ip" class="form-label">IP 位址 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="ip" name="ip" 
+                               value="{{farm.ip}}" required placeholder="例如：192.168.1.100"
+                               pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$">
+                        <div class="form-text">請輸入有效的 IPv4 位址</div>
+                    </div>
+                    
+                    {{#if farm}}
+                    <hr>
+                    <h6 class="mb-3">統計資料</h6>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="feeding_days" class="form-label">飼養天數</label>
+                            <input type="number" class="form-control" id="feeding_days" name="feeding_days" 
+                                   value="{{farm.stats.feeding_days}}" min="0" placeholder="0">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="animal_count" class="form-label">飼養數量</label>
+                            <input type="number" class="form-control" id="animal_count" name="animal_count" 
+                                   value="{{farm.stats.animal_count}}" min="0" placeholder="0">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="water_consumption" class="form-label">飲水量 (公升)</label>
+                            <input type="number" class="form-control" id="water_consumption" name="water_consumption" 
+                                   value="{{farm.stats.water_consumption}}" min="0" placeholder="0">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="fan_count" class="form-label">風扇數量</label>
+                            <input type="number" class="form-control" id="fan_count" name="fan_count" 
+                                   value="{{farm.stats.fan_count}}" min="0" placeholder="0">
+                        </div>
+                    </div>
+                    {{/if}}
+                    
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <a href="/farms" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>返回
+                            </a>
+                            {{#if farm}}
+                            <button type="button" class="btn btn-danger ms-2" onclick="confirmDelete('{{farm._id}}', '{{farm.name}}')">
+                                <i class="fas fa-trash me-1"></i>刪除場域
+                            </button>
+                            {{/if}}
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="submitBtn" onclick="handleSubmit(event)">
+                            <span id="submitText">
+                                <i class="fas fa-save me-1"></i>
+                                {{#if farm}}更新場域{{else}}建立場域{{/if}}
+                            </span>
+                            <span id="loadingText" class="d-none">
+                                <i class="fas fa-spinner fa-spin me-1"></i>
+                                處理中...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+console.log('🔧 載入表單 JavaScript...');
+
+// 全局處理函數
+function handleSubmit(event) {
+    console.log('🚀 按鈕點擊事件觸發!', event);
+    
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('farmForm');
+    
+    if (submitBtn && form) {
+        console.log('💾 準備提交表單到:', form.action);
+        
+        // 改變按鈕狀態
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>處理中...';
+        
+        console.log('✅ 按鈕狀態已更新');
+        
+        // 設定超時恢復（以防萬一）
+        setTimeout(function() {
+            if (submitBtn.disabled) {
+                console.log('⚠️ 超時恢復按鈕狀態');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-save me-1"></i>{{#if farm}}更新場域{{else}}建立場域{{/if}}';
+            }
+        }, 15000);
+        
+        // 延遲一點點然後手動提交表單
+        setTimeout(function() {
+            console.log('📤 手動提交表單');
+            form.submit();
+        }, 100);
+        
+        // 阻止預設的表單提交，我們會手動提交
+        event.preventDefault();
+        return false;
+    } else {
+        console.log('❌ 找不到表單元素');
+        return false;
+    }
+}
+
+// 刪除確認函數 - 再三確認
+function confirmDelete(farmId, farmName) {
+    console.log('🗑️ 請求刪除場域:', farmName);
+    
+    // 第一次確認
+    if (!confirm(`⚠️ 您確定要刪除場域「${farmName}」嗎？\n\n此操作無法復原！`)) {
+        console.log('❌ 用戶取消刪除 - 第一次確認');
+        return;
+    }
+    
+    // 第二次確認
+    if (!confirm(`🚨 再次確認：您真的要刪除場域「${farmName}」嗎？\n\n刪除後將失去所有相關資料！`)) {
+        console.log('❌ 用戶取消刪除 - 第二次確認');
+        return;
+    }
+    
+    // 第三次確認 - 要求輸入場域名稱
+    const userInput = prompt(`🔒 最後確認：請輸入場域名稱「${farmName}」來確認刪除：`);
+    if (userInput !== farmName) {
+        alert('❌ 輸入的場域名稱不正確，刪除操作已取消。');
+        console.log('❌ 用戶輸入錯誤 - 第三次確認失敗');
+        return;
+    }
+    
+    console.log('✅ 用戶確認刪除，開始執行刪除操作');
+    
+    // 創建並提交刪除表單
+    const deleteForm = document.createElement('form');
+    deleteForm.method = 'POST';
+    deleteForm.action = `/farms/${farmId}/delete`;
+    deleteForm.style.display = 'none';
+    
+    document.body.appendChild(deleteForm);
+    
+    // 顯示刪除中狀態
+    const deleteBtn = event.target;
+    const originalText = deleteBtn.innerHTML;
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>刪除中...';
+    
+    console.log('📤 提交刪除表單');
+    deleteForm.submit();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM 已載入');
+    
+    const form = document.getElementById('farmForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    console.log('🔍 尋找表單元素:', {
+        form: !!form,
+        submitBtn: !!submitBtn
+    });
+    
+    if (form && submitBtn) {
+        console.log('✅ 找到表單和按鈕');
+        
+        // 額外的表單提交事件監聽器
+        form.addEventListener('submit', function(e) {
+            console.log('📝 表單 submit 事件也被觸發');
+        });
+        
+    } else {
+        console.log('❌ 找不到必要的表單元素');
+    }
+});
+</script>

@@ -1,0 +1,585 @@
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1>
+                    <i class="fas fa-map-marker-alt me-2"></i>{{farm.name}}
+                </h1>
+                <p class="text-muted mb-0">IP: <code>{{farm.ip}}</code></p>
+            </div>
+            <div>
+                <a href="/farms/{{farm.id}}/edit" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-edit me-1"></i>編輯
+                </a>
+                <a href="/farms" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>返回列表
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 統計卡片 -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                <h4 class="mb-0">{{farm.stats.feeding_days}}</h4>
+                <small>飼養天數</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-piggy-bank fa-2x mb-2"></i>
+                <h4 class="mb-0">{{farm.stats.animal_count}}</h4>
+                <small>飼養數量 (隻)</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-tint fa-2x mb-2"></i>
+                <h4 class="mb-0">{{farm.stats.water_consumption}}</h4>
+                <small>飲水量 (公升)</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-fan fa-2x mb-2"></i>
+                <h4 class="mb-0">{{farm.stats.fan_count}}</h4>
+                <small>風扇數量 (台)</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 場域佈局管理 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-image me-2"></i>場域佈局圖
+                </h5>
+            </div>
+            <div class="card-body">
+                {{#if farm.layout_image}}
+                <div class="layout-container position-relative mb-3" style="max-height: 600px; overflow: hidden;">
+                    <img id="layout-image" src="/uploads/{{farm.layout_image}}" class="img-fluid w-100" alt="場域佈局圖">
+                    
+                    <!-- 感測器和設備標記 -->
+                    <div id="sensors-container">
+                        {{#each farm.sensors}}
+                        <div class="sensor-marker" style="position: absolute; left: {{this.x}}%; top: {{this.y}}%;" 
+                             data-type="sensor" data-id="{{this.id}}" title="{{this.name}}">
+                            <i class="fas fa-thermometer-half text-primary"></i>
+                        </div>
+                        {{/each}}
+                    </div>
+                    
+                    <div id="devices-container">
+                        {{#each farm.devices}}
+                        <div class="device-marker" style="position: absolute; left: {{this.x}}%; top: {{this.y}}%;" 
+                             data-type="device" data-id="{{this.id}}" title="{{this.name}}">
+                            <i class="fas fa-fan text-warning"></i>
+                        </div>
+                        {{/each}}
+                    </div>
+                </div>
+                
+                <!-- 編輯模式控制 -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <button id="edit-mode-btn" class="btn btn-outline-primary me-2">
+                            <i class="fas fa-edit me-1"></i>編輯模式
+                        </button>
+                        <button id="add-sensor-btn" class="btn btn-outline-success me-2" disabled>
+                            <i class="fas fa-plus me-1"></i>新增感測器
+                        </button>
+                        <button id="add-device-btn" class="btn btn-outline-warning" disabled>
+                            <i class="fas fa-plus me-1"></i>新增設備
+                        </button>
+                    </div>
+                    <div>
+                        <button id="save-layout-btn" class="btn btn-success" style="display: none;">
+                            <i class="fas fa-save me-1"></i>儲存佈局
+                        </button>
+                    </div>
+                </div>
+                {{else}}
+                <div class="text-center py-5">
+                    <i class="fas fa-upload fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">尚未上傳場域佈局圖</h5>
+                    <p class="text-muted">請上傳場域的平面圖以便進行設備和感測器的配置</p>
+                </div>
+                {{/if}}
+                
+                <!-- 上傳新圖片 -->
+                <form action="/farms/{{farm._id}}/upload-layout" method="post" enctype="multipart/form-data" class="mt-3" id="uploadForm">
+                    <div class="input-group">
+                        <input type="file" class="form-control" name="layout_image" accept="image/*" required id="layoutImageInput">
+                        <button type="button" class="btn btn-primary" id="uploadBtn">
+                            <span id="uploadBtnText">
+                                <i class="fas fa-upload me-1"></i>{{#if farm.layout_image}}更換圖片{{else}}上傳圖片{{/if}}
+                            </span>
+                            <span id="uploadingText" class="d-none">
+                                <i class="fas fa-spinner fa-spin me-1"></i>上傳中...
+                            </span>
+                        </button>
+                    </div>
+                    <div class="form-text">支援格式：JPG, PNG, GIF (最大 5MB)</div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 感測器和設備列表 -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-thermometer-half me-2"></i>感測器列表
+                </h6>
+            </div>
+            <div class="card-body">
+                {{#if farm.sensors}}
+                <div class="list-group">
+                    {{#each farm.sensors}}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{this.name}}</strong>
+                            <br>
+                            <small class="text-muted">類型: {{this.type}}</small>
+                            {{#if this.deviceName}}
+                            <br>
+                            <small class="text-muted">設備: {{this.deviceName}}</small>
+                            {{/if}}
+                        </div>
+                        <div class="text-end">
+                            <span class="badge {{statusBadge this.status}} rounded-pill mb-1">{{this.status}}</span>
+                            <br>
+                            <small class="text-muted">{{this.x}}, {{this.y}}</small>
+                        </div>
+                    </div>
+                    {{/each}}
+                </div>
+                {{else}}
+                <p class="text-muted text-center py-3">尚無感測器資料</p>
+                {{/if}}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-fan me-2"></i>設備列表
+                </h6>
+            </div>
+            <div class="card-body">
+                {{#if farm.devices}}
+                <div class="list-group">
+                    {{#each farm.devices}}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{this.name}}</strong>
+                            <br>
+                            <small class="text-muted">類型: {{this.type}}</small>
+                            {{#if this.deviceName}}
+                            <br>
+                            <small class="text-muted">設備: {{this.deviceName}}</small>
+                            {{/if}}
+                        </div>
+                        <div class="text-end">
+                            <span class="badge {{statusBadge this.status}} rounded-pill mb-1">{{this.status}}</span>
+                            <br>
+                            <small class="text-muted">{{this.x}}, {{this.y}}</small>
+                        </div>
+                    </div>
+                    {{/each}}
+                </div>
+                {{else}}
+                <p class="text-muted text-center py-3">尚無設備資料</p>
+                {{/if}}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 2D 佈局編輯功能
+document.addEventListener('DOMContentLoaded', function() {
+    const farmId = '{{farm._id}}';
+    let editMode = false;
+    let sensors = {{{json farm.sensors}}};
+    let devices = {{{json farm.devices}}};
+    
+    const editModeBtn = document.getElementById('edit-mode-btn');
+    const addSensorBtn = document.getElementById('add-sensor-btn');
+    const addDeviceBtn = document.getElementById('add-device-btn');
+    const saveLayoutBtn = document.getElementById('save-layout-btn');
+    const layoutImage = document.getElementById('layout-image');
+    
+    if (editModeBtn) {
+        editModeBtn.addEventListener('click', toggleEditMode);
+    }
+    
+    if (addSensorBtn) {
+        addSensorBtn.addEventListener('click', () => addItem('sensor'));
+    }
+    
+    if (addDeviceBtn) {
+        addDeviceBtn.addEventListener('click', () => addItem('device'));
+    }
+    
+    if (saveLayoutBtn) {
+        saveLayoutBtn.addEventListener('click', saveLayout);
+    }
+    
+    function toggleEditMode() {
+        editMode = !editMode;
+        
+        if (editMode) {
+            editModeBtn.innerHTML = '<i class="fas fa-times me-1"></i>退出編輯';
+            editModeBtn.className = 'btn btn-danger me-2';
+            addSensorBtn.disabled = false;
+            addDeviceBtn.disabled = false;
+            saveLayoutBtn.style.display = 'inline-block';
+            enableDragging();
+        } else {
+            editModeBtn.innerHTML = '<i class="fas fa-edit me-1"></i>編輯模式';
+            editModeBtn.className = 'btn btn-outline-primary me-2';
+            addSensorBtn.disabled = true;
+            addDeviceBtn.disabled = true;
+            saveLayoutBtn.style.display = 'none';
+            disableDragging();
+        }
+    }
+    
+    function enableDragging() {
+        const markers = document.querySelectorAll('.sensor-marker, .device-marker');
+        markers.forEach(marker => {
+            marker.style.cursor = 'move';
+            marker.draggable = true;
+            marker.addEventListener('dragstart', handleDragStart);
+            marker.addEventListener('dragend', handleDragEnd);
+        });
+        
+        if (layoutImage) {
+            layoutImage.addEventListener('dragover', handleDragOver);
+            layoutImage.addEventListener('drop', handleDrop);
+        }
+    }
+    
+    function disableDragging() {
+        const markers = document.querySelectorAll('.sensor-marker, .device-marker');
+        markers.forEach(marker => {
+            marker.style.cursor = 'default';
+            marker.draggable = false;
+        });
+    }
+    
+    let draggedElement = null;
+    
+    function handleDragStart(e) {
+        draggedElement = e.target;
+        e.dataTransfer.effectAllowed = 'move';
+    }
+    
+    function handleDragEnd(e) {
+        draggedElement = null;
+    }
+    
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    }
+    
+    function handleDrop(e) {
+        e.preventDefault();
+        
+        if (!draggedElement || !editMode) return;
+        
+        const rect = layoutImage.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        
+        draggedElement.style.left = x + '%';
+        draggedElement.style.top = y + '%';
+        
+        // 更新資料
+        const type = draggedElement.dataset.type;
+        const id = draggedElement.dataset.id;
+        
+        if (type === 'sensor') {
+            const sensor = sensors.find(s => s.id === id);
+            if (sensor) {
+                sensor.x = x;
+                sensor.y = y;
+            }
+        } else if (type === 'device') {
+            const device = devices.find(d => d.id === id);
+            if (device) {
+                device.x = x;
+                device.y = y;
+            }
+        }
+    }
+    
+    function addItem(type) {
+        const name = prompt(`請輸入${type === 'sensor' ? '感測器' : '設備'}名稱:`);
+        if (!name) return;
+        
+        const itemType = prompt(`請輸入${type === 'sensor' ? '感測器' : '設備'}類型:`);
+        if (!itemType) return;
+        
+        const deviceName = prompt(`請輸入 MQTT 設備名稱 (用於 device/設備名稱/# 主題):`);
+        if (!deviceName) return;
+        
+        const item = {
+            id: Date.now().toString(),
+            name: name,
+            type: itemType,
+            x: 50,
+            y: 50,
+            deviceName: deviceName,
+            status: 'offline'
+        };
+        
+        if (type === 'sensor') {
+            sensors.push(item);
+        } else {
+            devices.push(item);
+        }
+        
+        // 重新渲染
+        renderItems();
+    }
+    
+    function renderItems() {
+        const sensorsContainer = document.getElementById('sensors-container');
+        const devicesContainer = document.getElementById('devices-container');
+        
+        sensorsContainer.innerHTML = '';
+        devicesContainer.innerHTML = '';
+        
+        sensors.forEach(sensor => {
+            const marker = document.createElement('div');
+            marker.className = 'sensor-marker';
+            marker.style.position = 'absolute';
+            marker.style.left = sensor.x + '%';
+            marker.style.top = sensor.y + '%';
+            marker.dataset.type = 'sensor';
+            marker.dataset.id = sensor.id;
+            marker.title = sensor.name;
+            marker.innerHTML = '<i class="fas fa-thermometer-half text-primary"></i>';
+            sensorsContainer.appendChild(marker);
+        });
+        
+        devices.forEach(device => {
+            const marker = document.createElement('div');
+            marker.className = 'device-marker';
+            marker.style.position = 'absolute';
+            marker.style.left = device.x + '%';
+            marker.style.top = device.y + '%';
+            marker.dataset.type = 'device';
+            marker.dataset.id = device.id;
+            marker.title = device.name;
+            marker.innerHTML = '<i class="fas fa-fan text-warning"></i>';
+            devicesContainer.appendChild(marker);
+        });
+        
+        if (editMode) {
+            enableDragging();
+        }
+    }
+    
+    function saveLayout() {
+        console.log('💾 開始儲存佈局資料:', {
+            farmId: farmId,
+            sensorsCount: sensors.length,
+            devicesCount: devices.length,
+            url: `/farms/${farmId}/sensors-devices`
+        });
+        
+        fetch(`/farms/${farmId}/sensors-devices`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sensors: sensors,
+                devices: devices
+            })
+        })
+        .then(response => {
+            console.log('📨 收到佈局儲存回應:', response.status, response.statusText);
+            return response.json();
+        })
+        .then(data => {
+            console.log('📄 回應資料:', data);
+            if (data.success) {
+                console.log('✅ 佈局儲存成功');
+                alert('佈局已儲存！');
+                location.reload();
+            } else {
+                console.log('❌ 佈局儲存失敗:', data.error);
+                alert('儲存失敗：' + (data.error || '未知錯誤'));
+            }
+        })
+        .catch(error => {
+            console.error('❌ 佈局儲存錯誤:', error);
+            alert('儲存失敗，請重試。錯誤：' + error.message);
+        });
+    }
+    
+    // 圖片上傳處理
+    try {
+    console.log('🔧 初始化圖片上傳功能...');
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadBtnText = document.getElementById('uploadBtnText');
+    const uploadingText = document.getElementById('uploadingText');
+    const layoutImageInput = document.getElementById('layoutImageInput');
+    
+    console.log('🔍 尋找上傳元素:', {
+        uploadForm: !!uploadForm,
+        uploadBtn: !!uploadBtn,
+        uploadBtnText: !!uploadBtnText,
+        uploadingText: !!uploadingText,
+        layoutImageInput: !!layoutImageInput
+    });
+    
+    if (uploadForm && uploadBtn) {
+        console.log('✅ 上傳元素找到，設定事件監聽器');
+        
+        // 按鈕點擊觸發上傳
+        uploadBtn.addEventListener('click', function(e) {
+            console.log('🖱️ 上傳按鈕被點擊！');
+            e.preventDefault();
+            handleUpload();
+        });
+        
+        // 表單提交也觸發上傳
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleUpload();
+        });
+        
+        function handleUpload() {
+            console.log('🖼️ 開始上傳場域圖片');
+            
+            // 檢查檔案
+            const file = layoutImageInput.files[0];
+            if (!file) {
+                alert('請選擇要上傳的圖片檔案');
+                e.preventDefault();
+                return false;
+            }
+            
+            // 檢查檔案大小 (5MB = 5 * 1024 * 1024 bytes)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('檔案大小不能超過 5MB');
+                e.preventDefault();
+                return false;
+            }
+            
+            // 檢查檔案類型
+            if (!file.type.startsWith('image/')) {
+                alert('請選擇有效的圖片檔案 (JPG, PNG, GIF)');
+                e.preventDefault();
+                return false;
+            }
+            
+            console.log('✅ 檔案驗證通過，開始上傳:', {
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                action: uploadForm.action
+            });
+            
+            // 顯示上傳狀態
+            uploadBtn.disabled = true;
+            uploadBtnText.classList.add('d-none');
+            uploadingText.classList.remove('d-none');
+            
+            // 使用 fetch API 進行上傳以獲得更好的錯誤處理
+            
+            const formData = new FormData();
+            formData.append('layout_image', file);
+            
+            console.log('📤 使用 fetch 上傳檔案...');
+            
+            fetch(uploadForm.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('📨 收到回應:', response.status, response.statusText);
+                if (response.ok) {
+                    console.log('✅ 上傳成功，重新載入頁面');
+                    window.location.reload();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error(`HTTP ${response.status}: ${text}`);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('❌ 上傳失敗:', error);
+                alert('上傳失敗: ' + error.message);
+                
+                // 恢復按鈕狀態
+                uploadBtn.disabled = false;
+                uploadBtnText.classList.remove('d-none');
+                uploadingText.classList.add('d-none');
+            });
+        }
+        
+        // 檔案選擇預覽
+        layoutImageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                console.log('📷 選擇了圖片檔案:', file.name);
+                
+                // 移除舊的預覽
+                const oldPreview = document.getElementById('upload-preview');
+                if (oldPreview) {
+                    oldPreview.remove();
+                }
+                
+                // 創建新預覽
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.createElement('img');
+                    preview.id = 'upload-preview';
+                    preview.src = e.target.result;
+                    preview.className = 'img-fluid mt-2 border rounded';
+                    preview.style.maxHeight = '200px';
+                    preview.style.maxWidth = '100%';
+                    
+                    layoutImageInput.parentNode.insertAdjacentElement('afterend', preview);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    } else {
+        console.log('❌ 找不到上傳表單元素，無法設定上傳功能');
+    }
+} catch (error) {
+    console.error('❌ 初始化上傳功能時發生錯誤:', error);
+}
+});
+</script>

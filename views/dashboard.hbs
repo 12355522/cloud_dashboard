@@ -1,0 +1,259 @@
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-chart-line me-2"></i>儀表板
+        </h1>
+    </div>
+</div>
+
+<!-- 總覽統計卡片 -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">場域總數</h6>
+                        <h2 class="mb-0">{{totalStats.total_farms}}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-map-marker-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">總飼養數量</h6>
+                        <h2 class="mb-0">{{totalStats.total_animals}}</h2>
+                        <small>隻</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-piggy-bank fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">總飲水量</h6>
+                        <h2 class="mb-0">{{totalStats.total_water}}</h2>
+                        <small>公升</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-tint fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">風扇總數</h6>
+                        <h2 class="mb-0">{{totalStats.total_fans}}</h2>
+                        <small>台</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-fan fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 場域狀態表格 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>場域狀態總覽
+                </h5>
+                <a href="/farms/new" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus me-1"></i>新增場域
+                </a>
+            </div>
+            <div class="card-body">
+                {{#if farms}}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>場域名稱</th>
+                                <th>IP 位址</th>
+                                <th>飼養天數</th>
+                                <th>飼養數量</th>
+                                <th>飲水量 (公升)</th>
+                                <th>風扇數量</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#each farms}}
+                            <tr class="farm-row clickable" 
+                                data-farm-id="{{this._id}}" 
+                                data-farm-name="{{this.name}}" 
+                                data-farm-ip="{{this.ip}}"
+                                oncontextmenu="showFarmMenu(event, '{{this._id}}', '{{this.name}}', '{{this.ip}}'); return false;"
+                                onclick="showFarmMenu(event, '{{this._id}}', '{{this.name}}', '{{this.ip}}');"
+                                style="cursor: pointer;">
+                                <td>
+                                    <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                                    <strong>{{this.name}}</strong>
+                                </td>
+                                <td>
+                                    <code>{{this.ip}}</code>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{this.stats.feeding_days}} 天</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">{{this.stats.animal_count}} 隻</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{this.stats.water_consumption}}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-warning">{{this.stats.fan_count}} 台</span>
+                                </td>
+                                <td onclick="event.stopPropagation();">
+                                    <a href="/farms/{{this._id}}" class="btn btn-sm btn-outline-primary me-1">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="/farms/{{this._id}}/edit" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {{/each}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <div class="text-center py-5">
+                    <i class="fas fa-exclamation-circle fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">尚無場域資料</h4>
+                    <p class="text-muted">請先新增第一個場域開始管理</p>
+                    <a href="/farms/new" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>新增場域
+                    </a>
+                </div>
+                {{/if}}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 場域選單彈出視窗 -->
+<div class="modal fade" id="farmMenuModal" tabindex="-1" aria-labelledby="farmMenuModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="farmMenuModalLabel">
+                    <i class="fas fa-cog me-2"></i><span id="modalFarmName">場域操作</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="list-group list-group-flush">
+                    <a href="#" id="deviceOverviewLink" class="list-group-item list-group-item-action" target="_blank">
+                        <i class="fas fa-desktop me-2 text-primary"></i>
+                        設備總覽
+                        <small class="text-muted d-block" id="deviceOverviewUrl"></small>
+                    </a>
+                    <a href="#" id="controllerLink" class="list-group-item list-group-item-action" target="_blank">
+                        <i class="fas fa-sliders-h me-2 text-success"></i>
+                        設定環控
+                        <small class="text-muted d-block" id="controllerUrl"></small>
+                    </a>
+                    <div class="list-group-item bg-light border-top">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            點擊項目將在新分頁開啟
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.farm-row:hover {
+    background-color: #f8f9fa !important;
+}
+
+.clickable {
+    transition: background-color 0.2s ease;
+}
+
+.modal-sm {
+    max-width: 400px;
+}
+</style>
+
+<script>
+// 顯示場域選單
+function showFarmMenu(event, farmId, farmName, farmIP) {
+    console.log('🖱️ 點擊場域:', farmName, 'IP:', farmIP);
+    
+    // 防止事件冒泡到其他元素
+    event.stopPropagation();
+    
+    // 更新選單內容
+    document.getElementById('modalFarmName').textContent = farmName;
+    
+    // 設定設備總覽連結
+    const deviceOverviewUrl = `http://${farmIP}:8888`;
+    const deviceOverviewLink = document.getElementById('deviceOverviewLink');
+    deviceOverviewLink.href = deviceOverviewUrl;
+    document.getElementById('deviceOverviewUrl').textContent = deviceOverviewUrl;
+    
+    // 設定環控設定連結
+    const controllerUrl = `http://${farmIP}:8888/controller`;
+    const controllerLink = document.getElementById('controllerLink');
+    controllerLink.href = controllerUrl;
+    document.getElementById('controllerUrl').textContent = controllerUrl;
+    
+    // 顯示選單
+    const modal = new bootstrap.Modal(document.getElementById('farmMenuModal'));
+    modal.show();
+    
+    console.log('📋 選單已顯示:', {
+        deviceOverview: deviceOverviewUrl,
+        controller: controllerUrl
+    });
+}
+
+// 頁面載入時的初始化
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎛️ 場域選單功能已載入');
+    
+    // 為表格行添加視覺提示
+    const farmRows = document.querySelectorAll('.farm-row');
+    farmRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.01)';
+        });
+        
+        row.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+});
+</script>

@@ -1,0 +1,301 @@
+/* 自定義樣式 */
+body {
+    background-color: #f8f9fa;
+}
+
+.farm-card {
+    transition: transform 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.farm-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.layout-container {
+    position: relative;
+    display: inline-block;
+}
+
+.sensor-marker, .device-marker {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 2px solid;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    z-index: 10;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.sensor-marker {
+    border-color: #0d6efd;
+}
+
+.device-marker {
+    border-color: #fd7e14;
+}
+
+.sensor-marker:hover, .device-marker:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.sensor-marker i {
+    color: #0d6efd !important;
+}
+
+.device-marker i {
+    color: #fd7e14 !important;
+}
+
+/* 編輯模式下的樣式 */
+.edit-mode .sensor-marker,
+.edit-mode .device-marker {
+    border-width: 3px;
+    cursor: move;
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+    .sensor-marker, .device-marker {
+        width: 25px;
+        height: 25px;
+        font-size: 12px;
+    }
+}
+
+/* 統計卡片動畫 */
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-1px);
+}
+
+/* 表格樣式改善 */
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* 導航列樣式 */
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* 按鈕群組間距 */
+.btn-group .btn {
+    margin-right: 5px;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+
+/* 檔案上傳區域 */
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.upload-area:hover {
+    border-color: #0d6efd;
+    background-color: #f8f9ff;
+}
+
+.upload-area.dragover {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+
+/* 載入動畫 */
+.loading {
+    position: relative;
+}
+
+.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 狀態標籤 */
+.status-online {
+    color: #28a745;
+}
+
+.status-offline {
+    color: #dc3545;
+}
+
+.status-warning {
+    color: #ffc107;
+}
+
+/* 工具提示樣式 */
+.tooltip-inner {
+    font-size: 12px;
+}
+
+/* 麵包屑導航 */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+    margin-bottom: 1rem;
+}
+
+/* 圖片預覽 */
+.image-preview {
+    max-width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 無資料狀態 */
+.no-data {
+    opacity: 0.7;
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.no-data i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #6c757d;
+}
+
+/* 表單驗證 */
+.is-invalid {
+    border-color: #dc3545;
+}
+
+.invalid-feedback {
+    display: block;
+}
+
+/* 響應式表格 */
+@media (max-width: 576px) {
+    .table-responsive table {
+        font-size: 0.875rem;
+    }
+}
+
+/* 側邊欄樣式 */
+.sidebar {
+    background-color: #343a40;
+    min-height: 100vh;
+}
+
+.sidebar .nav-link {
+    color: #adb5bd;
+    padding: 0.75rem 1rem;
+}
+
+.sidebar .nav-link:hover {
+    color: #fff;
+    background-color: rgba(255,255,255,0.1);
+}
+
+.sidebar .nav-link.active {
+    color: #fff;
+    background-color: #0d6efd;
+}
+
+/* 模態框樣式 */
+.modal-header {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+}
+
+/* 進度條樣式 */
+.progress {
+    height: 8px;
+    border-radius: 4px;
+}
+
+/* 通知樣式 */
+.alert {
+    border: none;
+    border-radius: 8px;
+}
+
+.alert-dismissible .btn-close {
+    padding: 0.75rem 1rem;
+}
+
+/* 卡片頭部樣式 */
+.card-header {
+    background-color: rgba(0,0,0,0.03);
+    border-bottom: 1px solid rgba(0,0,0,0.125);
+}
+
+/* 列表群組樣式 */
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+/* 徽章樣式 */
+.badge {
+    font-size: 0.75em;
+}
+
+/* 工具欄樣式 */
+.toolbar {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 0.5rem 0;
+}
+
+/* 搜尋框樣式 */
+.search-box {
+    position: relative;
+}
+
+.search-box .form-control {
+    padding-left: 2.5rem;
+}
+
+.search-box .search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+}
