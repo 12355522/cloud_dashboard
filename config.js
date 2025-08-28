@@ -13,6 +13,11 @@ module.exports = {
     
     // MQTT 設定
     mqtt: {
+        // MQTT Broker 設定
+        brokerPort: process.env.MQTT_BROKER_PORT || 1883,
+        brokerHost: process.env.MQTT_BROKER_HOST || '0.0.0.0',
+        
+        // MQTT Client 設定
         broker: process.env.MQTT_BROKER || 'mqtt://localhost:1883',
         username: process.env.MQTT_USERNAME || '',
         password: process.env.MQTT_PASSWORD || '',

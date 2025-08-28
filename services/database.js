@@ -3,7 +3,12 @@ const config = require('../config');
 
 class DatabaseService {
     constructor() {
-        this.isConnected = false;
+        this.connected = false;
+    }
+
+    // 檢查連接狀態
+    isConnected() {
+        return this.connected && mongoose.connection.readyState === 1;
     }
 
     // 初始化資料庫連線
@@ -18,7 +23,7 @@ class DatabaseService {
                 socketTimeoutMS: 45000, // 45秒 socket 超時
             });
 
-            this.isConnected = true;
+            this.connected = true;
             console.log('✅ MongoDB 連接成功');
 
             // 設定事件監聽器
@@ -34,7 +39,7 @@ class DatabaseService {
 
             mongoose.connection.on('reconnected', () => {
                 console.log('✅ MongoDB 重新連接成功');
-                this.isConnected = true;
+                this.connected = true;
             });
 
             return this;

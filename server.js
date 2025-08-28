@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 // 載入設定和服務
 const config = require('./config');
 const databaseService = require('./services/database');
+const mqttBroker = require('./services/mqttBroker');
 const mqttClient = require('./services/mqttClient');
 const Farm = require('./models/Farm');
 
@@ -450,6 +451,27 @@ app.use((req, res) => {
     res.status(404).render('error', { error: '頁面不存在' });
 });
 
+// 系統狀態 API
+app.get('/api/system/status', (req, res) => {
+    const status = {
+        system: {
+            status: 'running',
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            version: process.version
+        },
+        database: {
+            status: databaseService.isConnected() ? 'connected' : 'disconnected'
+        },
+        mqtt: {
+            broker: mqttBroker.getStatus(),
+            client: mqttClient.getConnectionStatus()
+        }
+    };
+    
+    res.json(status);
+});
+
 app.use((error, req, res, next) => {
     console.error('系統錯誤:', error);
     res.status(500).render('error', { error: '系統發生錯誤' });
@@ -464,22 +486,36 @@ async function startServer() {
         await databaseService.initialize();
         await databaseService.initSampleData();
         
+        // 啟動 MQTT Broker
+        try {
+            await mqttBroker.start();
+            console.log('✅ MQTT Broker 已啟動');
+        } catch (brokerError) {
+            console.warn('⚠️ MQTT Broker 啟動失敗:', brokerError.message);
+        }
+
+        // 等待一秒讓 Broker 完全啟動
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         // 初始化 MQTT 客戶端
         try {
             await mqttClient.initialize();
+            console.log('✅ MQTT Client 已連接');
         } catch (mqttError) {
-            console.warn('⚠️ MQTT 連接失敗，系統將在沒有 MQTT 功能的情況下繼續運行:', mqttError.message);
+            console.warn('⚠️ MQTT Client 連接失敗，系統將在沒有 MQTT 功能的情況下繼續運行:', mqttError.message);
         }
         
         // 啟動 HTTP 伺服器
         app.listen(port, () => {
             console.log(`✅ 畜牧業管理系統已啟動`);
             console.log(`🌐 Web 介面: http://localhost:${port}`);
+            console.log(`📡 MQTT Broker: mqtt://localhost:${config.mqtt.brokerPort}`);
             console.log(`📊 系統狀態: http://localhost:${port}/api/system/status`);
             console.log('---');
             console.log('系統功能:');
             console.log('• 場域管理與監控');
             console.log('• 2D 佈局設備管理');
+            console.log('• MQTT Broker + Client 服務');
             console.log('• MQTT 即時資料接收');
             console.log('• MongoDB 資料持久化');
             console.log('---');
