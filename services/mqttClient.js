@@ -90,6 +90,9 @@ class MQTTClient {
     // 訂閱設備主題
     async subscribeToDeviceTopics() {
         try {
+            // 首先訂閱通用主題來監聽新設備
+            await this.subscribeToGeneralTopics();
+            
             // 取得所有場域的設備名稱
             const farms = await Farm.find({});
             const deviceNames = new Set();
@@ -115,6 +118,27 @@ class MQTTClient {
             console.log(`已訂閱 ${deviceNames.size} 個設備的 MQTT 主題`);
         } catch (error) {
             console.error('訂閱設備主題失敗:', error);
+        }
+    }
+
+    // 訂閱通用主題來監聽新設備
+    async subscribeToGeneralTopics() {
+        const generalTopics = [
+            'device/+/#',      // 監聽所有設備主題
+            'device/name'      // 監聽設備註冊主題
+        ];
+
+        for (const topic of generalTopics) {
+            if (!this.subscribedTopics.has(topic)) {
+                this.client.subscribe(topic, (err) => {
+                    if (err) {
+                        console.error(`訂閱通用主題 ${topic} 失敗:`, err);
+                    } else {
+                        this.subscribedTopics.add(topic);
+                        console.log(`✅ 已訂閱通用主題: ${topic}`);
+                    }
+                });
+            }
         }
     }
 
@@ -153,41 +177,139 @@ class MQTTClient {
             const messageStr = message.toString();
             console.log(`收到 MQTT 訊息: ${topic} -> ${messageStr}`);
 
+            // 特殊處理設備註冊訊息
+            if (topic === 'device/name') {
+                await this.handleDeviceRegistration(messageStr);
+                return;
+            }
+
             // 解析主題
             const topicParts = topic.split('/');
-            if (topicParts.length !== 3 || topicParts[0] !== 'device') {
+            if (topicParts.length < 2 || topicParts[0] !== 'device') {
                 console.warn('未知的主題格式:', topic);
                 return;
             }
 
-            const deviceName = topicParts[1];
-            const messageType = topicParts[2];
+            // 如果是特定設備的訊息
+            if (topicParts.length === 3) {
+                const deviceName = topicParts[1];
+                const messageType = topicParts[2];
 
-            // 嘗試解析 JSON 訊息
-            let data;
-            try {
-                data = JSON.parse(messageStr);
-            } catch (jsonError) {
-                console.warn('無法解析 JSON 訊息，將作為字串處理:', messageStr);
-                data = { raw: messageStr };
-            }
+                // 嘗試解析 JSON 訊息
+                let data;
+                try {
+                    data = JSON.parse(messageStr);
+                } catch (jsonError) {
+                    console.warn('無法解析 JSON 訊息，將作為字串處理:', messageStr);
+                    data = { raw: messageStr };
+                }
 
-            // 根據訊息類型處理
-            switch (messageType) {
-                case 'nodeinf':
-                    await this.handleNodeInfo(deviceName, data);
-                    break;
-                case 'seninf':
-                    await this.handleSensorInfo(deviceName, data);
-                    break;
-                case 'deviceinf':
-                    await this.handleDeviceInfo(deviceName, data);
-                    break;
-                default:
-                    console.warn('未知的訊息類型:', messageType);
+                // 根據訊息類型處理
+                switch (messageType) {
+                    case 'nodeinf':
+                        await this.handleNodeInfo(deviceName, data);
+                        break;
+                    case 'seninf':
+                        await this.handleSensorInfo(deviceName, data);
+                        break;
+                    case 'deviceinf':
+                        await this.handleDeviceInfo(deviceName, data);
+                        break;
+                    default:
+                        console.warn('未知的訊息類型:', messageType);
+                }
             }
         } catch (error) {
             console.error('處理 MQTT 訊息時發生錯誤:', error);
+        }
+    }
+
+    // 處理設備註冊
+    async handleDeviceRegistration(messageStr) {
+        try {
+            console.log('🔍 收到設備註冊訊息:', messageStr);
+            
+            // 解析設備註冊資料
+            let deviceData;
+            try {
+                deviceData = JSON.parse(messageStr);
+            } catch (jsonError) {
+                console.error('❌ 設備註冊訊息格式錯誤:', messageStr);
+                return;
+            }
+
+            const { deviceSN, ip } = deviceData;
+            
+            if (!deviceSN || !ip) {
+                console.error('❌ 設備註冊訊息缺少必要欄位 (deviceSN, ip):', deviceData);
+                return;
+            }
+
+            console.log(`📱 註冊新設備: ${deviceSN}, IP: ${ip}`);
+
+            // 檢查是否已存在此設備
+            const existingFarm = await Farm.findByDeviceName(deviceSN);
+            
+            if (existingFarm) {
+                console.log(`✅ 設備 ${deviceSN} 已存在於場域 ${existingFarm.name}`);
+                // 更新 IP 位址
+                const device = existingFarm.devices.find(d => d.deviceName === deviceSN) ||
+                              existingFarm.sensors.find(s => s.deviceName === deviceSN);
+                              
+                if (device && device.ip !== ip) {
+                    device.ip = ip;
+                    device.lastUpdate = new Date();
+                    await existingFarm.save();
+                    console.log(`🔄 已更新設備 ${deviceSN} 的 IP 位址為 ${ip}`);
+                }
+            } else {
+                // 建立新的場域或添加到預設場域
+                const defaultFarmName = `場域_${deviceSN.substring(0, 8)}`;
+                
+                let farm = await Farm.findOne({ name: defaultFarmName });
+                
+                if (!farm) {
+                    // 建立新場域
+                    farm = new Farm({
+                        name: defaultFarmName,
+                        ip: ip,
+                        sensors: [],
+                        devices: [],
+                        stats: {
+                            feeding_days: 0,
+                            animal_count: 0,
+                            water_consumption: 0,
+                            fan_count: 0
+                        }
+                    });
+                    console.log(`🏗️ 建立新場域: ${defaultFarmName}`);
+                }
+
+                // 添加設備到場域
+                const newDevice = {
+                    id: deviceSN,
+                    name: `設備_${deviceSN}`,
+                    type: 'sensor', // 預設為感測器，可根據後續訊息調整
+                    x: Math.random() * 100,
+                    y: Math.random() * 100,
+                    deviceName: deviceSN,
+                    ip: ip,
+                    status: 'online',
+                    lastUpdate: new Date()
+                };
+
+                farm.sensors.push(newDevice);
+                await farm.save();
+                
+                console.log(`✅ 已將設備 ${deviceSN} 添加到場域 ${farm.name}`);
+            }
+
+            // 為新設備訂閱 MQTT 主題
+            await this.subscribeToDeviceAll(deviceSN);
+            console.log(`📡 已為設備 ${deviceSN} 訂閱 MQTT 主題`);
+            
+        } catch (error) {
+            console.error('❌ 處理設備註冊失敗:', error);
         }
     }
 
@@ -217,6 +339,13 @@ class MQTTClient {
         try {
             console.log(`處理感測器狀態 - 設備: ${deviceName}`, data);
             
+            // 檢查是否為感測器配置資料（陣列格式）
+            if (Array.isArray(data)) {
+                await this.handleSensorConfiguration(deviceName, data);
+                return;
+            }
+            
+            // 處理一般感測器資料
             const farm = await Farm.findByDeviceName(deviceName);
             if (farm) {
                 await farm.updateSensorData(deviceName, {
@@ -231,6 +360,148 @@ class MQTTClient {
         } catch (error) {
             console.error('處理感測器狀態失敗:', error);
         }
+    }
+
+    // 處理感測器配置資料（自動創建感測器）
+    async handleSensorConfiguration(deviceName, sensorsData) {
+        try {
+            console.log(`🔧 處理感測器配置 - 設備: ${deviceName}, 感測器數量: ${sensorsData.length}`);
+            
+            // 找到對應的場域
+            let farm = await Farm.findByDeviceName(deviceName);
+            
+            if (!farm) {
+                // 如果沒有找到場域，創建新場域
+                const defaultFarmName = `場域_${deviceName.substring(0, 8)}`;
+                farm = new Farm({
+                    name: defaultFarmName,
+                    ip: '0.0.0.0', // 預設 IP，稍後可更新
+                    sensors: [],
+                    devices: [],
+                    stats: {
+                        feeding_days: 0,
+                        animal_count: 0,
+                        water_consumption: 0,
+                        fan_count: 0
+                    }
+                });
+                console.log(`🏗️ 為感測器配置建立新場域: ${defaultFarmName}`);
+            }
+
+            // 處理每個感測器
+            for (const sensorConfig of sensorsData) {
+                await this.createSensorFromConfig(farm, sensorConfig);
+            }
+
+            await farm.save();
+            console.log(`✅ 已為設備 ${deviceName} 自動創建 ${sensorsData.length} 個感測器`);
+            
+        } catch (error) {
+            console.error('處理感測器配置失敗:', error);
+        }
+    }
+
+    // 從配置資料創建單個感測器
+    async createSensorFromConfig(farm, sensorConfig) {
+        try {
+            const { SN, DES, ADDRESS, value, name, profile } = sensorConfig;
+            
+            // 解碼中文描述
+            let description = '';
+            let sensorName = '';
+            
+            try {
+                // 嘗試解碼 UTF-8 編碼的中文
+                description = this.decodeChineseText(DES);
+                sensorName = this.decodeChineseText(name);
+            } catch (decodeError) {
+                console.warn('中文解碼失敗，使用原始文字:', decodeError);
+                description = DES || '';
+                sensorName = name || '';
+            }
+
+            // 檢查是否已存在相同 SN 的感測器
+            const existingSensor = farm.sensors.find(s => s.deviceName === SN);
+            
+            if (existingSensor) {
+                console.log(`📡 感測器 ${SN} 已存在，更新配置`);
+                existingSensor.name = sensorName || `感測器_${SN}`;
+                existingSensor.lastUpdate = new Date();
+                existingSensor.status = 'online';
+                return;
+            }
+
+            // 創建新感測器
+            const newSensor = {
+                id: SN,
+                name: sensorName || `感測器_${SN}`,
+                type: this.determineSensorType(value),
+                x: (ADDRESS * 10) % 100, // 根據地址分配位置
+                y: Math.floor(ADDRESS * 8) % 100,
+                deviceName: SN,
+                status: 'online',
+                lastValue: {
+                    description: description,
+                    address: ADDRESS,
+                    values: value,
+                    profile: profile
+                },
+                lastUpdate: new Date()
+            };
+
+            farm.sensors.push(newSensor);
+            console.log(`✅ 已創建感測器: ${sensorName} (${SN}) - ${description}`);
+            
+        } catch (error) {
+            console.error('創建感測器失敗:', error);
+        }
+    }
+
+    // 解碼中文文字
+    decodeChineseText(encodedText) {
+        if (!encodedText) return '';
+        
+        try {
+            // 如果包含 \xe 格式的編碼，嘗試解碼
+            if (encodedText.includes('\\x')) {
+                // 將 \xe5\xbe\x8c 格式轉換為 Buffer
+                const hexString = encodedText.replace(/\\x/g, '');
+                const buffer = Buffer.from(hexString, 'hex');
+                return buffer.toString('utf8');
+            }
+            
+            return encodedText;
+        } catch (error) {
+            console.warn('解碼中文失敗:', error);
+            return encodedText;
+        }
+    }
+
+    // 根據感測器值類型判斷感測器類型
+    determineSensorType(values) {
+        if (!Array.isArray(values) || values.length === 0) {
+            return 'unknown';
+        }
+
+        const firstValue = values[0];
+        const name = firstValue.name || '';
+        
+        // 嘗試解碼名稱來判斷類型
+        try {
+            const decodedName = this.decodeChineseText(name);
+            
+            if (decodedName.includes('溫度')) return 'temperature';
+            if (decodedName.includes('濕度')) return 'humidity';
+            if (decodedName.includes('二氧化碳')) return 'co2';
+            if (decodedName.includes('壓')) return 'pressure';
+            if (decodedName.includes('風速')) return 'wind';
+            if (decodedName.includes('水')) return 'water';
+            
+        } catch (error) {
+            console.warn('判斷感測器類型失敗:', error);
+        }
+
+        return 'sensor';
     }
 
     // 處理設備資訊訊息

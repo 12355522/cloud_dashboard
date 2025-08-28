@@ -8,6 +8,7 @@ const sensorSchema = new mongoose.Schema({
     x: { type: Number, required: true, min: 0, max: 100 },
     y: { type: Number, required: true, min: 0, max: 100 },
     deviceName: { type: String }, // MQTT 設備名稱
+    ip: { type: String }, // 設備 IP 位址
     status: { type: String, enum: ['online', 'offline', 'error'], default: 'offline' },
     lastValue: { type: mongoose.Schema.Types.Mixed }, // 最新感測器數值
     lastUpdate: { type: Date, default: Date.now }
@@ -21,6 +22,7 @@ const deviceSchema = new mongoose.Schema({
     x: { type: Number, required: true, min: 0, max: 100 },
     y: { type: Number, required: true, min: 0, max: 100 },
     deviceName: { type: String }, // MQTT 設備名稱
+    ip: { type: String }, // 設備 IP 位址
     status: { type: String, enum: ['online', 'offline', 'error'], default: 'offline' },
     controlState: { type: mongoose.Schema.Types.Mixed }, // 設備控制狀態
     lastUpdate: { type: Date, default: Date.now }
