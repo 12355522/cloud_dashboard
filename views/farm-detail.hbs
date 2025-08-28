@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
             layoutImage.style.cursor = 'crosshair';
             if (gridOverlay) gridOverlay.classList.add('show');
             if (layoutInfo) {
-                layoutInfo.innerHTML = '<i class="fas fa-edit me-1"></i>編輯模式：點擊圖片新增設備，拖動調整位置';
+                layoutInfo.innerHTML = '<i class="fas fa-edit me-1"></i>編輯模式：拖動設備調整位置，按住 Shift 鍵網格對齊';
                 layoutInfo.style.background = 'rgba(40, 167, 69, 0.1)';
                 layoutInfo.style.borderColor = 'rgba(40, 167, 69, 0.2)';
             }
@@ -314,52 +314,124 @@ document.addEventListener('DOMContentLoaded', function() {
         const markers = document.querySelectorAll('.sensor-marker, .device-marker');
         markers.forEach(marker => {
             marker.style.cursor = 'move';
-            marker.draggable = true;
-            marker.addEventListener('dragstart', handleDragStart);
-            marker.addEventListener('dragend', handleDragEnd);
+            setupMouseDrag(marker);
         });
-        
-        if (layoutImage) {
-            layoutImage.addEventListener('dragover', handleDragOver);
-            layoutImage.addEventListener('drop', handleDrop);
-        }
     }
     
     function disableDragging() {
         const markers = document.querySelectorAll('.sensor-marker, .device-marker');
         markers.forEach(marker => {
             marker.style.cursor = 'default';
-            marker.draggable = false;
+            removeMouseDrag(marker);
         });
     }
     
+    let isDragging = false;
     let draggedElement = null;
+    let dragOffset = { x: 0, y: 0 };
     
-    function handleDragStart(e) {
-        draggedElement = e.target;
-        e.dataTransfer.effectAllowed = 'move';
+    function setupMouseDrag(element) {
+        element.addEventListener('mousedown', handleMouseDown);
     }
     
-    function handleDragEnd(e) {
-        draggedElement = null;
+    function removeMouseDrag(element) {
+        element.removeEventListener('mousedown', handleMouseDown);
     }
     
-    function handleDragOver(e) {
+    function handleMouseDown(e) {
+        if (!editMode) return;
+        
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+        e.stopPropagation();
+        
+        draggedElement = e.currentTarget;
+        isDragging = true;
+        
+        // 計算滑鼠相對於元素的偏移
+        const elementRect = draggedElement.getBoundingClientRect();
+        const imageContainer = document.querySelector('.layout-image-container');
+        const imageRect = imageContainer.getBoundingClientRect();
+        
+        dragOffset.x = e.clientX - elementRect.left - elementRect.width / 2;
+        dragOffset.y = e.clientY - elementRect.top - elementRect.height / 2;
+        
+        // 添加全域監聽器
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        
+        // 視覺效果
+        draggedElement.classList.add('dragging');
+        const container = document.querySelector('.layout-container-enhanced');
+        if (container) container.classList.add('edit-mode');
+        
+        console.log('🎯 開始拖拽:', draggedElement.dataset.id);
     }
     
-    function handleDrop(e) {
+    function handleMouseMove(e) {
+        if (!isDragging || !draggedElement) return;
+        
         e.preventDefault();
         
-        if (!draggedElement || !editMode) return;
+        const imageContainer = document.querySelector('.layout-image-container');
+        const image = document.getElementById('layout-image');
         
-        const rect = layoutImage.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        if (!imageContainer || !image) return;
         
-        draggedElement.style.left = x + '%';
-        draggedElement.style.top = y + '%';
+        const containerRect = imageContainer.getBoundingClientRect();
+        const imageRect = image.getBoundingClientRect();
+        
+        // 計算滑鼠在圖片內的相對位置（考慮縮放）
+        const mouseX = e.clientX - dragOffset.x;
+        const mouseY = e.clientY - dragOffset.y;
+        
+        // 轉換為相對於實際圖片的座標
+        const relativeX = mouseX - imageRect.left;
+        const relativeY = mouseY - imageRect.top;
+        
+        // 轉換為百分比（相對於圖片尺寸）
+        let percentX = Math.max(0, Math.min(100, (relativeX / imageRect.width) * 100));
+        let percentY = Math.max(0, Math.min(100, (relativeY / imageRect.height) * 100));
+        
+        // 網格對齊功能（可選）
+        const gridSnap = e.shiftKey; // 按住 Shift 鍵啟用網格對齊
+        const gridOverlay = document.getElementById('grid-overlay');
+        if (gridSnap) {
+            const gridSize = 5; // 5% 網格
+            percentX = Math.round(percentX / gridSize) * gridSize;
+            percentY = Math.round(percentY / gridSize) * gridSize;
+            if (gridOverlay) gridOverlay.classList.add('snap-mode');
+        } else {
+            if (gridOverlay) gridOverlay.classList.remove('snap-mode');
+        }
+        
+        // 立即更新視覺位置
+        draggedElement.style.left = percentX + '%';
+        draggedElement.style.top = percentY + '%';
+        
+        console.log('📍 拖拽位置:', { x: percentX.toFixed(1), y: percentY.toFixed(1) });
+    }
+    
+    function handleMouseUp(e) {
+        if (!isDragging || !draggedElement) return;
+        
+        e.preventDefault();
+        
+        // 移除全域監聽器
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        
+        // 恢復視覺效果
+        draggedElement.classList.remove('dragging');
+        const container = document.querySelector('.layout-container-enhanced');
+        if (container) container.classList.remove('edit-mode');
+        const gridOverlay = document.getElementById('grid-overlay');
+        if (gridOverlay) gridOverlay.classList.remove('snap-mode');
+        
+        // 獲取最終位置
+        const finalX = parseFloat(draggedElement.style.left);
+        const finalY = parseFloat(draggedElement.style.top);
+        
+        console.log('✅ 拖拽完成:', { id: draggedElement.dataset.id, x: finalX, y: finalY });
         
         // 更新資料
         const type = draggedElement.dataset.type;
@@ -368,16 +440,22 @@ document.addEventListener('DOMContentLoaded', function() {
         if (type === 'sensor') {
             const sensor = sensors.find(s => s.id === id);
             if (sensor) {
-                sensor.x = x;
-                sensor.y = y;
+                sensor.x = finalX;
+                sensor.y = finalY;
+                console.log('📊 已更新感測器位置:', sensor);
             }
         } else if (type === 'device') {
             const device = devices.find(d => d.id === id);
             if (device) {
-                device.x = x;
-                device.y = y;
+                device.x = finalX;
+                device.y = finalY;
+                console.log('📊 已更新設備位置:', device);
             }
         }
+        
+        // 重置狀態
+        isDragging = false;
+        draggedElement = null;
     }
     
     function addItem(type) {
