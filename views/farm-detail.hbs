@@ -383,6 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
             marker.style.top = sensor.y + '%';
             marker.dataset.type = 'sensor';
             marker.dataset.id = sensor.id;
+            marker.dataset.sensorType = sensor.type;
             marker.title = sensor.name;
             
             // 取得感測器圖示

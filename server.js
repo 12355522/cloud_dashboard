@@ -446,11 +446,6 @@ app.get('/api/farms/:id/realtime', async (req, res) => {
     }
 });
 
-// 錯誤處理頁面
-app.use((req, res) => {
-    res.status(404).render('error', { error: '頁面不存在' });
-});
-
 // 系統狀態 API
 app.get('/api/system/status', (req, res) => {
     const status = {
@@ -498,6 +493,11 @@ app.get('/api/farms/:id/sensors', async (req, res) => {
         console.error('取得感測器資料失敗:', error);
         res.status(500).json({ error: '取得感測器資料失敗: ' + error.message });
     }
+});
+
+// 錯誤處理頁面
+app.use((req, res) => {
+    res.status(404).render('error', { error: '頁面不存在' });
 });
 
 app.use((error, req, res, next) => {
