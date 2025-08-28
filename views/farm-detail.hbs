@@ -71,48 +71,74 @@
                     <i class="fas fa-image me-2"></i>場域佈局圖
                 </h5>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 {{#if farm.layout_image}}
-                <div class="layout-container position-relative mb-3" style="max-height: 600px; overflow: hidden;">
-                    <img id="layout-image" src="/uploads/{{farm.layout_image}}" class="img-fluid w-100" alt="場域佈局圖">
-                    
-                    <!-- 感測器和設備標記 -->
-                    <div id="sensors-container">
-                        {{#each farm.sensors}}
-                        <div class="sensor-marker" style="position: absolute; left: {{this.x}}%; top: {{this.y}}%;" 
-                             data-type="sensor" data-id="{{this.id}}" title="{{this.name}}">
-                            <i class="fas fa-thermometer-half text-primary"></i>
+                <!-- 佈局圖外框 -->
+                <div class="layout-wrapper">
+                    <div class="layout-container-enhanced">
+                        <div class="layout-image-container">
+                            <img id="layout-image" src="/uploads/{{farm.layout_image}}" alt="場域佈局圖">
+                            
+                            <!-- 感測器和設備標記 -->
+                            <div id="sensors-container" class="markers-layer">
+                                {{#each farm.sensors}}
+                                <div class="sensor-marker" style="position: absolute; left: {{this.x}}%; top: {{this.y}}%;" 
+                                     data-type="sensor" data-id="{{this.id}}" title="{{this.name}}">
+                                    <i class="fas fa-thermometer-half text-primary"></i>
+                                </div>
+                                {{/each}}
+                            </div>
+                            
+                            <div id="devices-container" class="markers-layer">
+                                {{#each farm.devices}}
+                                <div class="device-marker" style="position: absolute; left: {{this.x}}%; top: {{this.y}}%;" 
+                                     data-type="device" data-id="{{this.id}}" title="{{this.name}}">
+                                    <i class="fas fa-fan text-warning"></i>
+                                </div>
+                                {{/each}}
+                            </div>
+                            
+                            <!-- 格線背景 -->
+                            <div class="grid-overlay" id="grid-overlay"></div>
                         </div>
-                        {{/each}}
-                    </div>
-                    
-                    <div id="devices-container">
-                        {{#each farm.devices}}
-                        <div class="device-marker" style="position: absolute; left: {{this.x}}%; top: {{this.y}}%;" 
-                             data-type="device" data-id="{{this.id}}" title="{{this.name}}">
-                            <i class="fas fa-fan text-warning"></i>
+                        
+                        <!-- 縮放控制 -->
+                        <div class="zoom-controls">
+                            <button class="btn btn-sm btn-outline-light" id="zoom-in-btn" title="放大">
+                                <i class="fas fa-search-plus"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-light" id="zoom-out-btn" title="縮小">
+                                <i class="fas fa-search-minus"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-light" id="zoom-reset-btn" title="重設">
+                                <i class="fas fa-expand-arrows-alt"></i>
+                            </button>
                         </div>
-                        {{/each}}
                     </div>
                 </div>
                 
-                <!-- 編輯模式控制 -->
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div>
-                        <button id="edit-mode-btn" class="btn btn-outline-primary me-2">
-                            <i class="fas fa-edit me-1"></i>編輯模式
-                        </button>
-                        <button id="add-sensor-btn" class="btn btn-outline-success me-2" disabled>
-                            <i class="fas fa-plus me-1"></i>新增感測器
-                        </button>
-                        <button id="add-device-btn" class="btn btn-outline-warning" disabled>
-                            <i class="fas fa-plus me-1"></i>新增設備
-                        </button>
-                    </div>
-                    <div>
-                        <button id="save-layout-btn" class="btn btn-success" style="display: none;">
-                            <i class="fas fa-save me-1"></i>儲存佈局
-                        </button>
+                <!-- 工具列 -->
+                <div class="layout-toolbar">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary" id="edit-mode-btn">
+                                <i class="fas fa-edit me-1"></i>編輯模式
+                            </button>
+                            <button type="button" class="btn btn-outline-success" id="add-sensor-btn" disabled>
+                                <i class="fas fa-plus me-1"></i>新增感測器
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" id="add-device-btn" disabled>
+                                <i class="fas fa-plus me-1"></i>新增設備
+                            </button>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <button type="button" class="btn btn-success me-3" id="save-layout-btn" style="display: none;">
+                                <i class="fas fa-save me-1"></i>儲存佈局
+                            </button>
+                            <span class="text-muted small" id="layout-info">
+                                <i class="fas fa-info-circle me-1"></i>點擊編輯模式開始配置設備位置
+                            </span>
+                        </div>
                     </div>
                 </div>
                 {{else}}
@@ -250,20 +276,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function toggleEditMode() {
         editMode = !editMode;
+        const gridOverlay = document.getElementById('grid-overlay');
+        const layoutInfo = document.getElementById('layout-info');
         
         if (editMode) {
             editModeBtn.innerHTML = '<i class="fas fa-times me-1"></i>退出編輯';
-            editModeBtn.className = 'btn btn-danger me-2';
+            editModeBtn.className = 'btn btn-danger';
             addSensorBtn.disabled = false;
             addDeviceBtn.disabled = false;
             saveLayoutBtn.style.display = 'inline-block';
+            layoutImage.style.cursor = 'crosshair';
+            if (gridOverlay) gridOverlay.classList.add('show');
+            if (layoutInfo) {
+                layoutInfo.innerHTML = '<i class="fas fa-edit me-1"></i>編輯模式：點擊圖片新增設備，拖動調整位置';
+                layoutInfo.style.background = 'rgba(40, 167, 69, 0.1)';
+                layoutInfo.style.borderColor = 'rgba(40, 167, 69, 0.2)';
+            }
             enableDragging();
         } else {
             editModeBtn.innerHTML = '<i class="fas fa-edit me-1"></i>編輯模式';
-            editModeBtn.className = 'btn btn-outline-primary me-2';
+            editModeBtn.className = 'btn btn-outline-primary';
             addSensorBtn.disabled = true;
             addDeviceBtn.disabled = true;
             saveLayoutBtn.style.display = 'none';
+            layoutImage.style.cursor = 'default';
+            if (gridOverlay) gridOverlay.classList.remove('show');
+            if (layoutInfo) {
+                layoutInfo.innerHTML = '<i class="fas fa-info-circle me-1"></i>點擊編輯模式開始配置設備位置';
+                layoutInfo.style.background = 'rgba(13, 110, 253, 0.1)';
+                layoutInfo.style.borderColor = 'rgba(13, 110, 253, 0.2)';
+            }
             disableDragging();
         }
     }
@@ -513,8 +555,63 @@ document.addEventListener('DOMContentLoaded', function() {
         renderItems();
     }
     
+    // 縮放功能
+    let currentZoom = 1;
+    const maxZoom = 3;
+    const minZoom = 0.5;
+    const zoomStep = 0.2;
+    
+    function initializeZoomControls() {
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        const zoomResetBtn = document.getElementById('zoom-reset-btn');
+        const layoutImage = document.getElementById('layout-image');
+        
+        if (zoomInBtn && zoomOutBtn && zoomResetBtn && layoutImage) {
+            zoomInBtn.addEventListener('click', () => {
+                currentZoom = Math.min(currentZoom + zoomStep, maxZoom);
+                applyZoom();
+            });
+            
+            zoomOutBtn.addEventListener('click', () => {
+                currentZoom = Math.max(currentZoom - zoomStep, minZoom);
+                applyZoom();
+            });
+            
+            zoomResetBtn.addEventListener('click', () => {
+                currentZoom = 1;
+                applyZoom();
+            });
+            
+            // 滑鼠滾輪縮放
+            layoutImage.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -zoomStep : zoomStep;
+                currentZoom = Math.min(Math.max(currentZoom + delta, minZoom), maxZoom);
+                applyZoom();
+            });
+        }
+    }
+    
+    function applyZoom() {
+        const layoutImage = document.getElementById('layout-image');
+        if (layoutImage) {
+            layoutImage.style.transform = \`scale(\${currentZoom})\`;
+            
+            // 更新按鈕狀態
+            const zoomInBtn = document.getElementById('zoom-in-btn');
+            const zoomOutBtn = document.getElementById('zoom-out-btn');
+            
+            if (zoomInBtn) zoomInBtn.disabled = currentZoom >= maxZoom;
+            if (zoomOutBtn) zoomOutBtn.disabled = currentZoom <= minZoom;
+        }
+    }
+    
     // 啟動頁面時開始定期更新
     startSensorDataRefresh();
+    
+    // 初始化縮放功能
+    initializeZoomControls();
     
     // 圖片上傳處理
     try {
