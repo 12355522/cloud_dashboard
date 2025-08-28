@@ -652,5 +652,15 @@ document.addEventListener('DOMContentLoaded', function() {
 } catch (error) {
     console.error('❌ 初始化上傳功能時發生錯誤:', error);
 }
+
+// 初始化感測器資料顯示和自動更新
+try {
+    console.log('🔧 初始化感測器資料顯示...');
+    renderItems();
+    startSensorDataRefresh();
+    console.log('✅ 感測器資料自動更新已啟動');
+} catch (error) {
+    console.error('❌ 初始化感測器功能時發生錯誤:', error);
+}
 });
 </script>
