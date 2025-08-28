@@ -384,7 +384,32 @@ document.addEventListener('DOMContentLoaded', function() {
             marker.dataset.type = 'sensor';
             marker.dataset.id = sensor.id;
             marker.title = sensor.name;
-            marker.innerHTML = '<i class="fas fa-thermometer-half text-primary"></i>';
+            
+            // 取得感測器圖示
+            const icon = getSensorIcon(sensor.type);
+            const statusClass = sensor.status === 'online' ? 'text-success' : 'text-secondary';
+            
+            // 建立感測器標記 HTML
+            let markerHTML = `<div class="sensor-display">
+                <div class="sensor-icon">
+                    <i class="${icon} ${statusClass}"></i>
+                </div>
+                <div class="sensor-name">${sensor.name}</div>`;
+            
+            // 顯示最新數值
+            if (sensor.lastValue && sensor.lastValue.currentValues) {
+                markerHTML += '<div class="sensor-values">';
+                sensor.lastValue.currentValues.forEach(value => {
+                    markerHTML += `<div class="sensor-value">
+                        <span class="value">${value.value}</span>
+                        <span class="unit">${value.unit}</span>
+                    </div>`;
+                });
+                markerHTML += '</div>';
+            }
+            
+            markerHTML += '</div>';
+            marker.innerHTML = markerHTML;
             sensorsContainer.appendChild(marker);
         });
         
@@ -444,6 +469,51 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('儲存失敗，請重試。錯誤：' + error.message);
         });
     }
+    
+    // 取得感測器圖示
+    function getSensorIcon(sensorType) {
+        const iconMap = {
+            'temperature': 'fas fa-thermometer-half',
+            'humidity': 'fas fa-tint',
+            'co2': 'fas fa-smog',
+            'pressure': 'fas fa-gauge-high',
+            'wind': 'fas fa-wind',
+            'water': 'fas fa-droplet',
+            'sensor': 'fas fa-microchip',
+            'unknown': 'fas fa-question-circle'
+        };
+        return iconMap[sensorType] || iconMap['sensor'];
+    }
+    
+    // 定期更新感測器數值
+    function startSensorDataRefresh() {
+        setInterval(async () => {
+            try {
+                const response = await fetch(`/api/farms/${farmId}/sensors`);
+                if (response.ok) {
+                    const sensorData = await response.json();
+                    updateSensorData(sensorData);
+                }
+            } catch (error) {
+                console.error('更新感測器資料失敗:', error);
+            }
+        }, 10000); // 每10秒更新一次
+    }
+    
+    // 更新感測器資料
+    function updateSensorData(sensorData) {
+        sensorData.forEach(updatedSensor => {
+            const existingSensor = sensors.find(s => s.deviceName === updatedSensor.deviceName);
+            if (existingSensor) {
+                existingSensor.lastValue = updatedSensor.lastValue;
+                existingSensor.status = updatedSensor.status;
+            }
+        });
+        renderItems();
+    }
+    
+    // 啟動頁面時開始定期更新
+    startSensorDataRefresh();
     
     // 圖片上傳處理
     try {

@@ -472,6 +472,34 @@ app.get('/api/system/status', (req, res) => {
     res.json(status);
 });
 
+// 取得場域感測器資料 API
+app.get('/api/farms/:id/sensors', async (req, res) => {
+    try {
+        const farm = await Farm.findById(req.params.id).lean();
+        if (!farm) {
+            return res.status(404).json({ error: '場域不存在' });
+        }
+        
+        // 只返回感測器資料
+        const sensorsData = farm.sensors.map(sensor => ({
+            id: sensor.id,
+            name: sensor.name,
+            type: sensor.type,
+            deviceName: sensor.deviceName,
+            status: sensor.status,
+            lastValue: sensor.lastValue,
+            lastUpdate: sensor.lastUpdate,
+            x: sensor.x,
+            y: sensor.y
+        }));
+        
+        res.json(sensorsData);
+    } catch (error) {
+        console.error('取得感測器資料失敗:', error);
+        res.status(500).json({ error: '取得感測器資料失敗: ' + error.message });
+    }
+});
+
 app.use((error, req, res, next) => {
     console.error('系統錯誤:', error);
     res.status(500).render('error', { error: '系統發生錯誤' });
