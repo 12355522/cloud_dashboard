@@ -337,9 +337,15 @@ class MQTTClient {
     // 處理感測器設備狀態訊息
     async handleSensorInfo(deviceName, data) {
         try {
-            console.log(`處理感測器狀態 - 設備: ${deviceName}`, data);
+            console.log(`處理感測器狀態 - 設備: ${deviceName}`);
             
-            // 檢查是否為感測器配置資料（陣列格式）
+            // 檢查是否為新格式的感測器配置資料（包含 device_info 和 sensors）
+            if (data && data.device_info && data.sensors && Array.isArray(data.sensors)) {
+                await this.handleNewFormatSensorConfiguration(deviceName, data);
+                return;
+            }
+            
+            // 檢查是否為舊格式的感測器配置資料（陣列格式）
             if (Array.isArray(data)) {
                 await this.handleSensorConfiguration(deviceName, data);
                 return;
@@ -502,6 +508,151 @@ class MQTTClient {
         }
 
         return 'sensor';
+    }
+
+    // 處理新格式的感測器配置資料
+    async handleNewFormatSensorConfiguration(deviceName, data) {
+        try {
+            const { device_info, sensors, timestamp } = data;
+            
+            console.log(`🔧 處理新格式感測器配置 - 設備: ${device_info.device_name}, 感測器數量: ${device_info.total_sensors}`);
+            console.log(`📊 設備狀態: ${device_info.status}, 時間戳記: ${timestamp}`);
+            
+            // 找到對應的場域，如果沒有則創建
+            let farm = await Farm.findByDeviceName(deviceName);
+            
+            if (!farm) {
+                // 創建新場域
+                const defaultFarmName = `場域_${device_info.device_name}`;
+                farm = new Farm({
+                    name: defaultFarmName,
+                    ip: '0.0.0.0', // 預設 IP，稍後可更新
+                    sensors: [],
+                    devices: [],
+                    stats: {
+                        feeding_days: 0,
+                        animal_count: 0,
+                        water_consumption: 0,
+                        fan_count: 0
+                    }
+                });
+                console.log(`🏗️ 為新格式感測器配置建立新場域: ${defaultFarmName}`);
+            }
+
+            // 處理每個感測器
+            for (const sensorData of sensors) {
+                await this.createSensorFromNewFormat(farm, sensorData);
+            }
+
+            // 更新場域的設備狀態
+            await this.updateFarmDeviceStatus(farm, deviceName, device_info);
+
+            await farm.save();
+            console.log(`✅ 已為設備 ${device_info.device_name} 自動創建/更新 ${sensors.length} 個感測器`);
+            
+        } catch (error) {
+            console.error('處理新格式感測器配置失敗:', error);
+        }
+    }
+
+    // 從新格式配置資料創建單個感測器
+    async createSensorFromNewFormat(farm, sensorData) {
+        try {
+            const { device_info, sensor_values, profile, metadata } = sensorData;
+            const { serial_number, description, address, name, status } = device_info;
+            
+            console.log(`📡 處理感測器: ${name} (${serial_number}) - ${description}`);
+            
+            // 檢查是否已存在相同序號的感測器
+            const existingSensor = farm.sensors.find(s => s.deviceName === serial_number);
+            
+            if (existingSensor) {
+                console.log(`📡 感測器 ${serial_number} 已存在，更新配置`);
+                existingSensor.name = name || `感測器_${serial_number}`;
+                existingSensor.status = status === 'active' ? 'online' : 'offline';
+                existingSensor.lastUpdate = new Date();
+                existingSensor.lastValue = {
+                    description: description,
+                    address: address,
+                    sensor_values: sensor_values,
+                    profile: profile,
+                    metadata: metadata
+                };
+                return;
+            }
+
+            // 創建新感測器
+            const newSensor = {
+                id: serial_number,
+                name: name || `感測器_${serial_number}`,
+                type: this.determineSensorTypeFromName(name, description),
+                x: (address * 10) % 100, // 根據地址分配位置
+                y: Math.floor(address * 8) % 100,
+                deviceName: serial_number,
+                status: status === 'active' ? 'online' : 'offline',
+                lastValue: {
+                    description: description,
+                    address: address,
+                    sensor_values: sensor_values,
+                    profile: profile,
+                    metadata: metadata
+                },
+                lastUpdate: new Date()
+            };
+
+            farm.sensors.push(newSensor);
+            console.log(`✅ 已創建感測器: ${name} (${serial_number}) - ${description} [${newSensor.type}]`);
+            
+        } catch (error) {
+            console.error('創建新格式感測器失敗:', error);
+        }
+    }
+
+    // 根據感測器名稱和描述判斷類型
+    determineSensorTypeFromName(name, description) {
+        const text = (name + ' ' + description).toLowerCase();
+        
+        if (text.includes('溫度')) return 'temperature';
+        if (text.includes('濕度')) return 'humidity';
+        if (text.includes('二氧化碳') || text.includes('co2')) return 'co2';
+        if (text.includes('壓') || text.includes('pressure')) return 'pressure';
+        if (text.includes('風速') || text.includes('wind')) return 'wind';
+        if (text.includes('水') || text.includes('water')) return 'water';
+        if (text.includes('溫濕度')) return 'temperature'; // 溫濕度感測器歸類為溫度
+        
+        return 'sensor';
+    }
+
+    // 更新場域設備狀態
+    async updateFarmDeviceStatus(farm, deviceName, deviceInfo) {
+        try {
+            // 檢查是否已有對應的設備記錄
+            let device = farm.devices.find(d => d.deviceName === deviceName);
+            
+            if (!device) {
+                // 創建新的設備記錄
+                const newDevice = {
+                    id: deviceName,
+                    name: deviceInfo.device_name || deviceName,
+                    type: 'controller',
+                    x: 50, // 中央位置
+                    y: 50,
+                    deviceName: deviceName,
+                    status: deviceInfo.status === 'active' ? 'online' : 'offline',
+                    lastUpdate: new Date()
+                };
+                
+                farm.devices.push(newDevice);
+                console.log(`✅ 已創建控制器設備: ${deviceInfo.device_name}`);
+            } else {
+                // 更新現有設備
+                device.status = deviceInfo.status === 'active' ? 'online' : 'offline';
+                device.lastUpdate = new Date();
+                console.log(`🔄 已更新控制器狀態: ${deviceInfo.status}`);
+            }
+        } catch (error) {
+            console.error('更新場域設備狀態失敗:', error);
+        }
     }
 
     // 處理設備資訊訊息
