@@ -1,6 +1,7 @@
 const mqtt = require('mqtt');
 const config = require('../config');
 const Farm = require('../models/Farm');
+const { getUnitByCode } = require('../unit');
 
 class MQTTClient {
     constructor() {
@@ -190,6 +191,24 @@ class MQTTClient {
                 return;
             }
 
+            // 如果是個別感測器數值訊息 (device/deviceName/sensorId)
+            if (topicParts.length === 3 && !['nodeinf', 'seninf', 'deviceinf'].includes(topicParts[2])) {
+                const deviceName = topicParts[1];
+                const sensorId = topicParts[2];
+                
+                // 嘗試解析 JSON 訊息
+                let data;
+                try {
+                    data = JSON.parse(messageStr);
+                } catch (jsonError) {
+                    console.warn('無法解析個別感測器訊息:', messageStr);
+                    return;
+                }
+                
+                await this.handleIndividualSensorData(deviceName, sensorId, data);
+                return;
+            }
+
             // 如果是特定設備的訊息
             if (topicParts.length === 3) {
                 const deviceName = topicParts[1];
@@ -222,6 +241,89 @@ class MQTTClient {
         } catch (error) {
             console.error('處理 MQTT 訊息時發生錯誤:', error);
         }
+    }
+
+    // 處理個別感測器數值訊息
+    async handleIndividualSensorData(deviceName, sensorId, data) {
+        try {
+            const { timestamp, published_by, ...sensorValues } = data;
+            
+            console.log(`📊 處理個別感測器數值 - 設備: ${deviceName}, 感測器: ${sensorId}`);
+            console.log(`📈 數值:`, sensorValues);
+            console.log(`⏰ 時間: ${timestamp}`);
+            
+            // 找到對應的場域
+            const farm = await Farm.findByDeviceName(sensorId);
+            if (!farm) {
+                console.warn(`找不到感測器 ${sensorId} 對應的場域`);
+                return;
+            }
+
+            // 找到對應的感測器
+            const sensor = farm.sensors.find(s => s.deviceName === sensorId);
+            if (!sensor) {
+                console.warn(`在場域 ${farm.name} 中找不到感測器 ${sensorId}`);
+                return;
+            }
+
+            // 處理感測器數值
+            const processedValues = this.processSensorValues(sensorValues);
+            
+            // 更新感測器數值
+            sensor.lastValue = {
+                ...sensor.lastValue,
+                currentValues: processedValues,
+                rawData: sensorValues,
+                timestamp: timestamp,
+                published_by: published_by
+            };
+            sensor.lastUpdate = new Date();
+            sensor.status = 'online';
+
+            await farm.save();
+            
+            console.log(`✅ 已更新感測器 ${sensorId} 的數值:`, processedValues.map(v => `${v.name}=${v.value}${v.unit}`).join(', '));
+            
+        } catch (error) {
+            console.error('處理個別感測器數值失敗:', error);
+        }
+    }
+
+    // 處理感測器數值並添加單位資訊
+    processSensorValues(sensorValues) {
+        const processedValues = [];
+        
+        for (const [code, value] of Object.entries(sensorValues)) {
+            if (code === 'sensorId' || code === 'timestamp' || code === 'published_by') {
+                continue; // 跳過非數值欄位
+            }
+            
+            // 從 unit.js 獲取感測器類型資訊
+            const unitInfo = getUnitByCode(code);
+            
+            if (unitInfo) {
+                processedValues.push({
+                    code: code,
+                    name: unitInfo.name,
+                    value: value,
+                    unit: unitInfo.unit,
+                    img: unitInfo.img
+                });
+                console.log(`📐 ${code} -> ${unitInfo.name}: ${value} ${unitInfo.unit}`);
+            } else {
+                // 未知代碼，使用原始值
+                processedValues.push({
+                    code: code,
+                    name: `未知感測器_${code}`,
+                    value: value,
+                    unit: '',
+                    img: 'unknown.png'
+                });
+                console.warn(`⚠️ 未知感測器代碼: ${code}`);
+            }
+        }
+        
+        return processedValues;
     }
 
     // 處理設備註冊
