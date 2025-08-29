@@ -24,11 +24,10 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="card-title">總飼養數量</h6>
-                        <h2 class="mb-0">{{totalStats.total_animals}}</h2>
-                        <small>隻</small>
+                        <h2 class="mb-0">{{totalStats.total_animals}}隻</h2> 
                     </div>
                     <div class="align-self-center">
-                        <i class="fas fa-piggy-bank fa-2x opacity-75"></i>
+                        <i class="fas fa-feather-alt fa-2x opacity-75"></i>
                     </div>
                 </div>
             </div>
@@ -41,8 +40,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="card-title">總飲水量</h6>
-                        <h2 class="mb-0">{{totalStats.total_water}}</h2>
-                        <small>公升</small>
+                        <h2 class="mb-0">{{totalStats.total_water}}公升</h2> 
                     </div>
                     <div class="align-self-center">
                         <i class="fas fa-tint fa-2x opacity-75"></i>
@@ -58,8 +56,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="card-title">風扇總數</h6>
-                        <h2 class="mb-0">{{totalStats.total_fans}}</h2>
-                        <small>台</small>
+                        <h2 class="mb-0">{{totalStats.total_fans}}台</h2> 
                     </div>
                     <div class="align-self-center">
                         <i class="fas fa-fan fa-2x opacity-75"></i>
@@ -345,14 +342,43 @@
 }
 
 .carousel-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 1rem 1.5rem;
+    background: #ffffff;
+    border-bottom: 2px solid #007bff;
+    color: #2c3e50;
+    padding: 1.2rem 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .carousel-header h5 {
-    color: white;
+    color: #2c3e50;
     font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.carousel-header .text-muted {
+    color: #6c757d !important;
+}
+
+.carousel-header .btn-outline-secondary {
+    border-color: #6c757d;
+    color: #6c757d;
+}
+
+.carousel-header .btn-outline-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.carousel-header .btn-outline-primary {
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.carousel-header .btn-outline-primary:hover {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
 }
 
 .large-carousel-body {
