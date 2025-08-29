@@ -102,14 +102,15 @@
                             <div class="farm-carousel-slide">
                                 {{#if this.layout_image}}
                                 <div class="carousel-image-container large-image-container">
-                                    <img src="/uploads/{{this.layout_image}}" alt="{{this.name}} 佈局圖" class="carousel-farm-image large-farm-image">
-                                    
-                                    <!-- 感測器標記 -->
-                                    <div class="carousel-sensors-overlay">
-                                        {{#each this.sensors}}
-                                        <div class="carousel-sensor-marker" 
-                                             style="left: {{this.x}}%; top: {{this.y}}%;"
-                                             data-sensor-id="{{this.id}}">
+                                    <div class="image-wrapper">
+                                        <img src="/uploads/{{this.layout_image}}" alt="{{this.name}} 佈局圖" class="carousel-farm-image large-farm-image">
+                                        
+                                        <!-- 感測器標記 -->
+                                        <div class="carousel-sensors-overlay">
+                                            {{#each this.sensors}}
+                                            <div class="carousel-sensor-marker" 
+                                                 style="left: {{this.x}}%; top: {{this.y}}%;"
+                                                 data-sensor-id="{{this.id}}">
                                             <div class="sensor-card {{#if this.lastValue.currentValues}}active{{else}}inactive{{/if}}">
                                                 <div class="sensor-info">
                                                     <div class="sensor-name">{{this.name}}</div>
@@ -127,22 +128,23 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        {{/each}}
-                                    </div>
-                                    
-                                    <!-- 設備標記 -->
-                                    <div class="carousel-devices-overlay">
-                                        {{#each this.devices}}
-                                        <div class="carousel-device-marker" 
-                                             style="left: {{this.x}}%; top: {{this.y}}%;">
-                                            <div class="device-card">
-                                                <div class="device-icon">
-                                                    <i class="fas fa-cog"></i>
-                                                </div>
-                                                <div class="device-name">{{this.name}}</div>
-                                            </div>
+                                            {{/each}}
                                         </div>
-                                        {{/each}}
+                                        
+                                        <!-- 設備標記 -->
+                                        <div class="carousel-devices-overlay">
+                                            {{#each this.devices}}
+                                            <div class="carousel-device-marker" 
+                                                 style="left: {{this.x}}%; top: {{this.y}}%;">
+                                                <div class="device-card">
+                                                    <div class="device-icon">
+                                                        <i class="fas fa-cog"></i>
+                                                    </div>
+                                                    <div class="device-name">{{this.name}}</div>
+                                                </div>
+                                            </div>
+                                            {{/each}}
+                                        </div>
                                     </div>
                                 </div>
                                 {{else}}
@@ -387,20 +389,30 @@
     padding: 20px;
     width: 100%;
     height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 固定寬高比的圖片包裝器 */
+.image-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 1200px; /* 建議最大寬度 */
+    aspect-ratio: 16/10; /* 建議比例 16:10 */
+    max-height: calc(100% - 40px);
 }
 
 .carousel-farm-image {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     transition: transform 0.3s ease;
 }
 
 .large-farm-image {
-    max-width: calc(100% - 40px);
-    max-height: calc(100% - 40px);
     box-shadow: 0 12px 40px rgba(0,0,0,0.2);
 }
 
@@ -416,6 +428,7 @@
     width: 100%;
     height: 100%;
     pointer-events: none;
+    z-index: 10;
 }
 
 .carousel-sensor-marker,
@@ -729,6 +742,11 @@
         padding: 10px;
     }
     
+    .image-wrapper {
+        max-width: 800px;
+        aspect-ratio: 4/3; /* 平板使用 4:3 比例 */
+    }
+    
     .farm-info-card {
         min-width: 200px;
         max-width: 250px;
@@ -762,6 +780,11 @@
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
+    }
+    
+    .image-wrapper {
+        max-width: 500px;
+        aspect-ratio: 3/2; /* 手機使用 3:2 比例 */
     }
     
     .farm-info-card {
