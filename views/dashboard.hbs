@@ -103,7 +103,7 @@
                                 {{#if this.layout_image}}
                                 <div class="carousel-image-container large-image-container">
                                     <div class="image-wrapper">
-                                        <img src="/uploads/{{this.layout_image}}" alt="{{this.name}} 佈局圖" class="carousel-farm-image large-farm-image">
+                                        <img src="/uploads/{{this.layout_image}}" alt="{{this.name}} 佈局圖" class="carousel-farm-image large-farm-image" onload="adjustOverlayToImage(this)">
                                         
                                         <!-- 感測器標記 -->
                                         <div class="carousel-sensors-overlay">
@@ -394,19 +394,23 @@
     justify-content: center;
 }
 
-/* 固定寬高比的圖片包裝器 */
+/* 自適應比例的圖片包裝器 */
 .image-wrapper {
     position: relative;
     width: 100%;
-    max-width: 1200px; /* 建議最大寬度 */
-    aspect-ratio: 16/10; /* 建議比例 16:10 */
+    max-width: 1200px;
     max-height: calc(100% - 40px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .carousel-farm-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain; /* 保持完整圖片顯示 */
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     transition: transform 0.3s ease;
@@ -744,7 +748,6 @@
     
     .image-wrapper {
         max-width: 800px;
-        aspect-ratio: 4/3; /* 平板使用 4:3 比例 */
     }
     
     .farm-info-card {
@@ -784,7 +787,6 @@
     
     .image-wrapper {
         max-width: 500px;
-        aspect-ratio: 3/2; /* 手機使用 3:2 比例 */
     }
     
     .farm-info-card {
@@ -1025,4 +1027,67 @@ function updateCarouselSensorData(farmsData) {
     
     console.log('🔄 輪播感測器資料已更新');
 }
+
+// 調整 overlay 以匹配實際圖片尺寸
+function adjustOverlayToImage(img) {
+    const wrapper = img.closest('.image-wrapper');
+    if (!wrapper) return;
+    
+    const overlays = wrapper.querySelectorAll('.carousel-sensors-overlay, .carousel-devices-overlay');
+    
+    // 等待圖片完全載入
+    setTimeout(() => {
+        const imgRect = img.getBoundingClientRect();
+        const wrapperRect = wrapper.getBoundingClientRect();
+        
+        // 計算圖片在容器中的實際位置和尺寸
+        const imgLeft = imgRect.left - wrapperRect.left;
+        const imgTop = imgRect.top - wrapperRect.top;
+        const imgWidth = imgRect.width;
+        const imgHeight = imgRect.height;
+        
+        // 調整每個 overlay 的位置和尺寸
+        overlays.forEach(overlay => {
+            overlay.style.left = imgLeft + 'px';
+            overlay.style.top = imgTop + 'px';
+            overlay.style.width = imgWidth + 'px';
+            overlay.style.height = imgHeight + 'px';
+        });
+        
+        console.log('📐 調整 overlay 以匹配圖片尺寸:', {
+            left: imgLeft,
+            top: imgTop,
+            width: imgWidth,
+            height: imgHeight
+        });
+    }, 100);
+}
+
+// 視窗大小改變時重新調整所有 overlay
+function adjustAllOverlays() {
+    const images = document.querySelectorAll('.carousel-farm-image');
+    images.forEach(img => {
+        if (img.complete && img.naturalHeight !== 0) {
+            adjustOverlayToImage(img);
+        }
+    });
+}
+
+// 初始化時設定調整功能
+document.addEventListener('DOMContentLoaded', function() {
+    // 視窗大小改變時重新調整 overlay
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(adjustAllOverlays, 300);
+    });
+    
+    // 輪播切換時也需要重新調整
+    const carousel = document.getElementById('farmLayoutCarousel');
+    if (carousel) {
+        carousel.addEventListener('slid.bs.carousel', function() {
+            setTimeout(adjustAllOverlays, 200);
+        });
+    }
+});
 </script>
