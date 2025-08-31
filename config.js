@@ -37,7 +37,7 @@ module.exports = {
     
     // 伺服器設定
     server: {
-        port: process.env.PORT || 3000
+        port: process.env.PORT || 3001
     },
     
     // 系統設定

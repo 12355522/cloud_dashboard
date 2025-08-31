@@ -1,0 +1,390 @@
+<div class="col-12 p-1 fancooling">
+	<span>智慧定頻風扇溫控</span> 
+	<input class="form-check-input" type="checkbox" id="AutoRunEnb">
+	<label class="form-check-label" for="AutoRunEnb">啟動溫控模式</label>
+	<button type="button" class="btn btn-success" id="AutoBtn" style="float:right; margin:3px">儲存設定</button>
+
+	<!-- 溫度感測器選擇 -->
+	<div class="input-group mt-3">
+		<select class="form-control" id="sensorOne" name="sensor_One" style="width:100%">
+			<option class="sensornone" selected="" value="none">請選擇溫度感測器</option>
+		</select>
+	</div>
+
+	<!-- 溫控設定 -->
+	<div class="card mt-3">
+		<div class="card-header">
+			<h6 class="mb-0">溫控設定</h6>
+		</div>
+		<div class="card-body">
+			<div class="input-group mb-3">
+				<span class="input-group-text">開啟溫度</span>
+				<input type="number" class="form-control number" placeholder="溫度" value="28" min="10" max="50" id="StartTemp">
+				<span class="input-group-text">℃</span>
+				<span class="input-group-text">關閉溫度</span>
+				<input type="number" class="form-control number" placeholder="溫度" value="25" min="10" max="50" id="StopTemp">
+				<span class="input-group-text">℃</span>
+			</div>
+			<p class="text-muted small">
+				當溫度高於開啟溫度時，風扇會啟動；當溫度低於關閉溫度時，風扇會關閉
+			</p>
+		</div>
+	</div>
+
+	<!-- 間歇模式設定 -->
+	<div class="card mt-3">
+		<div class="card-header">
+			<div class="form-check form-switch">
+				<input class="form-check-input" type="checkbox" id="IntermittentMode">
+				<label class="form-check-label" for="IntermittentMode">
+					<h6 class="mb-0">間歇模式</h6>
+				</label>
+			</div>
+		</div>
+		<div class="card-body" id="intermittentSettings" style="display: none;">
+			<div class="input-group mb-3">
+				<span class="input-group-text">開啟時間</span>
+				<input type="number" class="form-control number" placeholder="分鐘" value="15" min="1" max="60" id="OnMinutes">
+				<span class="input-group-text">分鐘</span>
+				<span class="input-group-text">關閉時間</span>
+				<input type="number" class="form-control number" placeholder="分鐘" value="45" min="1" max="60" id="OffMinutes">
+				<span class="input-group-text">分鐘</span>
+			</div>
+			<p class="text-muted small">
+				當溫度在開啟/關閉溫度之間時，風扇會依據設定的間歇時間運作：開啟指定分鐘後關閉指定分鐘，如此循環
+			</p>
+		</div>
+	</div>
+
+	<!-- 二氧化碳控制 -->
+	<div class="card mt-3">
+		<div class="card-header">
+			<div class="form-check form-switch">
+				<input class="form-check-input" type="checkbox" id="co2Enb">
+				<label class="form-check-label" for="co2Enb">
+					<h6 class="mb-0">二氧化碳強制通風</h6>
+				</label>
+			</div>
+		</div>
+		<div class="card-body" id="co2Settings" style="display: none;">
+			<div class="input-group mb-3">
+				<select class="form-select" id="sensorTwo" name="sensor_Two">
+					<option class="sensornone" selected="" value="none">請選擇二氧化碳感測器</option>
+				</select>
+				<span class="input-group-text">濃度</span>
+				<input type="number" class="form-control number" placeholder="PPM" value="1500" min="400" max="6000" id="AutoTGCo2">
+				<span class="input-group-text">ppm</span>
+			</div>
+			<p class="text-muted small">
+				當二氧化碳濃度超過設定值時，將強制啟動風扇通風，無視溫度設定
+			</p>
+		</div>
+	</div>
+
+	<!-- 日程控制 -->
+	<div class="card mt-3">
+		<div class="card-header">
+			<div class="form-check form-switch">
+				<input class="form-check-input" type="checkbox" id="dailyenb" checked>
+				<label class="form-check-label" for="dailyenb">
+					<h6 class="mb-0">日程控制模式</h6>
+				</label>
+			</div>
+		</div>
+		<div class="card-body" id="dailySettings">
+			<div class="input-group mb-2">
+				<span class="input-group-text">天數</span>
+				<input type="number" class="form-control number Day" placeholder="Day" value="1" min="0" max="365" id="Day1">
+				<input type="number" class="form-control number Day" placeholder="Day" value="3" min="0" max="365" id="Day2">
+				<input type="number" class="form-control number Day" placeholder="Day" value="4" min="0" max="365" id="Day3">
+				<input type="number" class="form-control number Day" placeholder="Day" value="5" min="0" max="365" id="Day4">
+				<input type="number" class="form-control number Day" placeholder="Day" value="7" min="0" max="365" id="Day5">
+				<input type="number" class="form-control number Day" placeholder="Day" value="10" min="0" max="365" id="Day6">
+				<input type="number" class="form-control number Day" placeholder="Day" value="15" min="0" max="365" id="Day7">
+				<input type="number" class="form-control number Day" placeholder="Day" value="20" min="0" max="365" id="Day8">
+				<input type="number" class="form-control number Day" placeholder="Day" value="23" min="0" max="365" id="Day9">
+				<input type="number" class="form-control number Day" placeholder="Day" value="30" min="0" max="365" id="Day10">
+				<span class="input-group-text">日</span>
+			</div>
+
+			<div class="input-group mb-2">
+				<span class="input-group-text">開啟溫度</span>
+				<input type="number" class="form-control number ST" placeholder="℃" value="30" min="10" max="50" id="ST1">
+				<input type="number" class="form-control number ST" placeholder="℃" value="29" min="10" max="50" id="ST2">
+				<input type="number" class="form-control number ST" placeholder="℃" value="28" min="10" max="50" id="ST3">
+				<input type="number" class="form-control number ST" placeholder="℃" value="27" min="10" max="50" id="ST4">
+				<input type="number" class="form-control number ST" placeholder="℃" value="26" min="10" max="50" id="ST5">
+				<input type="number" class="form-control number ST" placeholder="℃" value="25" min="10" max="50" id="ST6">
+				<input type="number" class="form-control number ST" placeholder="℃" value="24" min="10" max="50" id="ST7">
+				<input type="number" class="form-control number ST" placeholder="℃" value="23" min="10" max="50" id="ST8">
+				<input type="number" class="form-control number ST" placeholder="℃" value="22" min="10" max="50" id="ST9">
+				<input type="number" class="form-control number ST" placeholder="℃" value="21" min="10" max="50" id="ST10">
+				<span class="input-group-text">℃</span>
+			</div>
+
+			<div class="input-group mb-2">
+				<span class="input-group-text">關閉溫度</span>
+				<input type="number" class="form-control number ET" placeholder="℃" value="27" min="10" max="50" id="ET1">
+				<input type="number" class="form-control number ET" placeholder="℃" value="26" min="10" max="50" id="ET2"> 
+				<input type="number" class="form-control number ET" placeholder="℃" value="25" min="10" max="50" id="ET3">
+				<input type="number" class="form-control number ET" placeholder="℃" value="24" min="10" max="50" id="ET4">
+				<input type="number" class="form-control number ET" placeholder="℃" value="23" min="10" max="50" id="ET5">
+				<input type="number" class="form-control number ET" placeholder="℃" value="22" min="10" max="50" id="ET6">
+				<input type="number" class="form-control number ET" placeholder="℃" value="21" min="10" max="50" id="ET7">
+				<input type="number" class="form-control number ET" placeholder="℃" value="20" min="10" max="50" id="ET8">
+				<input type="number" class="form-control number ET" placeholder="℃" value="19" min="10" max="50" id="ET9">
+				<input type="number" class="form-control number ET" placeholder="℃" value="18" min="10" max="50" id="ET10">
+				<span class="input-group-text">℃</span>
+			</div>
+
+			<div class="input-group">
+				<span class="input-group-text">間歇開啟</span>
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS1">
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS2">
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS3">
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS4">
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS5">
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS6">
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS7">
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS8">
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS9">
+				<input type="number" class="form-control number SMVS" placeholder="分鐘" value="15" min="1" max="60" id="SMVS10">
+				<span class="input-group-text">分鐘</span>
+			</div>
+
+			<div class="input-group mt-2">
+				<span class="input-group-text">間歇關閉</span>
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT1">
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT2">
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT3">
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT4">
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT5">
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT6">
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT7">
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT8">
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT9">
+				<input type="number" class="form-control number SMVT" placeholder="分鐘" value="45" min="1" max="60" id="SMVT10">
+				<span class="input-group-text">分鐘</span>
+			</div>
+			
+			<p class="text-muted small mt-2">
+				根據飼養天數自動調整開啟/關閉溫度和間歇時間設定
+			</p>
+		</div>
+	</div>
+</div>
+
+<script>
+	let val5 = $("#deviceType").val() || "constant_fan";  
+	var sensorsdata = '{{{json sensorsdata}}}';
+	var SSData = JSON.parse(sensorsdata);
+	var deviceType = "constant_fan";
+	var CNumber = "{{ CNumber }}" || "DEFAULT_001";
+
+	// 初始化感測器選項
+	$("#smartmode").show();
+	for (var i = 0; i < SSData.length; i++) {
+		if (SSData[i].SN.indexOf("11A") >= 0 || SSData[i].SN.indexOf("16A") >= 0) {
+			$("#sensorOne").append("<option value='" + SSData[i].SN + "'>" + SSData[i].SN + "(" + SSData[i].DES + ")" + "</option>");
+		}
+	}
+
+	for (var i = 0; i < SSData.length; i++) {
+		if (SSData[i].SN.indexOf("21A") >= 0) {
+			$("#sensorTwo").append("<option value='" + SSData[i].SN + "'>" + SSData[i].SN + "(" + SSData[i].DES + ")" + "</option>");
+		}
+	}
+
+	// 間歇模式開關控制
+	$("#IntermittentMode").on('change', function() {
+		if ($(this).is(':checked')) {
+			$("#intermittentSettings").show();
+		} else {
+			$("#intermittentSettings").hide();
+		}
+	});
+
+	// 二氧化碳控制開關
+	$("#co2Enb").on('change', function() {
+		if ($(this).is(':checked')) {
+			$("#co2Settings").show();
+		} else {
+			$("#co2Settings").hide();
+		}
+	});
+
+	// 日程控制開關
+	$("#dailyenb").on('change', function() {
+		if ($(this).is(':checked')) {
+			$("#dailySettings").show();
+		} else {
+			$("#dailySettings").hide();
+		}
+	});
+
+	// 儲存設定按鈕
+	$("#AutoBtn").on('click', function () {
+		let err = false;
+		let errmsg = false;
+		let val1 = $("#sensorOne").val();
+		let val2 = $("#sensorTwo").val();
+		let AutoTGCo2 = $("#AutoTGCo2").val();
+		let val4 = $("#AutoRunEnb").is(':checked');
+		let val5 = deviceType;
+		let dailyenb = $("#dailyenb").is(':checked');
+		let co2Enb = $("#co2Enb").is(':checked');
+		let intermittentMode = $("#IntermittentMode").is(':checked');
+
+		let Day = new Array(10);
+		let ST = new Array(10);
+		let ET = new Array(10);
+		let SMVS = new Array(10);
+		let SMVT = new Array(10);
+
+		let StartTemp = Number($("#StartTemp").val());
+		let StopTemp = Number($("#StopTemp").val());
+		let OnMinutes = Number($("#OnMinutes").val());
+		let OffMinutes = Number($("#OffMinutes").val());
+
+		// 收集日程控制資料
+		for (let k = 0; k < 10; k++) {
+			Day[k] = $(`#Day${k + 1}`).val();
+			ST[k] = $(`#ST${k + 1}`).val();
+			ET[k] = $(`#ET${k + 1}`).val();
+			SMVS[k] = $(`#SMVS${k + 1}`).val();
+			SMVT[k] = $(`#SMVT${k + 1}`).val();
+		}
+
+		// 驗證設定
+		if (val1 == "none" || val1 == undefined) {
+			err = true;
+			errmsg = "請選擇溫度感測器";
+		} else if (StartTemp <= StopTemp) {
+			err = true;
+			errmsg = "開啟溫度必須高於關閉溫度";
+		} else if (intermittentMode && (OnMinutes <= 0 || OffMinutes <= 0)) {
+			err = true;
+			errmsg = "間歇模式的開啟和關閉時間必須大於0";
+		}
+
+		let autoTGCo2_val = Number(AutoTGCo2); 
+		if (co2Enb == true) {
+			if (val2 == "none" || val2 == null) {
+				err = true;
+				errmsg = "未選擇二氧化碳感測器";
+			} else if (autoTGCo2_val < 400 || autoTGCo2_val > 6000) {
+				err = true;
+				errmsg = "二氧化碳濃度範圍錯誤（400-6000 ppm）";
+			}
+		} 
+
+		if (err) {
+			$.alert({
+				title: '設定失敗',
+				content: errmsg,
+			});
+		} else {
+			let data = {
+				CNumber: CNumber,
+				deviceType: val5,
+				sensorOne: val1,
+				sensorTwo: val2,
+				startTemp: StartTemp,
+				stopTemp: StopTemp,
+				co2Threshold: autoTGCo2_val,
+				isEnable: val4,
+				isCo2Enable: co2Enb,
+				isIntermittentMode: intermittentMode,
+				onMinutes: OnMinutes,
+				offMinutes: OffMinutes,
+				isDailyEnable: dailyenb,
+				Day: Day,
+				ST: ST,
+				ET: ET,
+				SMVS: SMVS,
+				SMVT: SMVT
+			};
+			
+			console.log('定頻風扇設定資料:', data);
+			
+			$.ajax({
+				type: 'POST',
+				url: '/remote/constant-fan',
+				data: JSON.stringify(data),
+				dataType: 'JSON',
+				contentType: "application/json; charset=utf-8",
+				success: function (s) {
+					$.alert({
+						title: '設定成功',
+						content: '定頻風扇溫控設定已儲存',
+						onAction: function() {
+							location.reload(0);
+						}
+					});
+				},
+				error: function (err) {
+					console.error('儲存失敗:', err);
+					$.alert({
+						title: '儲存失敗',
+						content: '請檢查網路連線並重試',
+					});
+				}
+			});
+		}
+	});
+
+	// 頁面載入時載入現有設定
+	$(document).ready(function () {
+		console.log('=== constant-fan.hbs document ready ===');
+		
+		$.ajax({
+			type: 'get',
+			url: `/remote/constant-fan?N=${CNumber}`,
+			dataType: 'JSON',
+			contentType: "application/json; charset=utf-8",
+			success: function (res) { 
+				console.log("載入的設定:", res);
+				$("#sensorOne").val(res.sensorOne);
+				$("#sensorTwo").val(res.sensorTwo);
+				$('#AutoRunEnb').prop('checked', res.isEnable);
+				$('#co2Enb').prop('checked', res.isCo2Enable);
+				$('#IntermittentMode').prop('checked', res.isIntermittentMode);
+				$('#dailyenb').prop('checked', res.isDailyEnable);
+				
+				$("#StartTemp").val(res.startTemp);
+				$("#StopTemp").val(res.stopTemp);
+				$("#AutoTGCo2").val(res.co2Threshold);
+				$("#OnMinutes").val(res.onMinutes);
+				$("#OffMinutes").val(res.offMinutes);
+
+				// 根據開關狀態顯示/隱藏設定區域
+				if (res.isIntermittentMode) {
+					$("#intermittentSettings").show();
+				}
+				if (res.isCo2Enable) {
+					$("#co2Settings").show();
+				}
+				if (res.isDailyEnable) {
+					$("#dailySettings").show();
+				}
+
+				// 載入日程設定
+				try {
+					for (let i = 0; i < 10; i++) {
+						$(`#Day${i + 1}`).val(res.Day[i]);
+						$(`#ST${i + 1}`).val(res.ST[i]);
+						$(`#ET${i + 1}`).val(res.ET[i]);
+						$(`#SMVS${i + 1}`).val(res.SMVS[i]);
+						$(`#SMVT${i + 1}`).val(res.SMVT[i]);
+					}
+				} catch (err) {
+					console.log('載入日程設定時發生錯誤:', err);
+				}   
+			},
+			error: function (err) {
+				console.log('載入設定失敗，使用預設值');
+			}
+		});
+	});
+</script>
+

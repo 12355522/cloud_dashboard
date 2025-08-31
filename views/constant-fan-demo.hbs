@@ -1,0 +1,167 @@
+{{!-- 定頻風扇控制演示頁面 --}}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-fan"></i> 定頻風扇溫控系統演示
+                    </h4>
+                    <small class="text-muted">設備編號: {{CNumber}}</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                                                <!-- 控制面板 -->
+                        <div class="col-md-8">
+                            <!-- 直接嵌入定頻風扇控制介面 -->
+                            <iframe src="/remote/constant-fan-page?N={{CNumber}}" 
+                                    width="100%" 
+                                    height="800" 
+                                    frameborder="0" 
+                                    style="border-radius: 8px;">
+                            </iframe>
+                        </div>
+                        
+                        <!-- 狀態監控 -->
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">即時狀態監控</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center">
+                                        <div class="col-6 mb-3">
+                                            <div class="bg-primary text-white p-3 rounded">
+                                                <i class="fas fa-thermometer-half fa-2x mb-2"></i>
+                                                <h5 id="currentTemp">--</h5>
+                                                <small>當前溫度</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 mb-3">
+                                            <div class="bg-info text-white p-3 rounded">
+                                                <i class="fas fa-fan fa-2x mb-2" id="fanIcon"></i>
+                                                <h6 id="fanStatus">檢查中...</h6>
+                                                <small>風扇狀態</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 mb-3">
+                                            <div class="bg-warning text-white p-3 rounded">
+                                                <i class="fas fa-smog fa-2x mb-2"></i>
+                                                <h6 id="co2Level">--</h6>
+                                                <small>CO2濃度</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 mb-3">
+                                            <div class="bg-success text-white p-3 rounded">
+                                                <i class="fas fa-clock fa-2x mb-2"></i>
+                                                <h6 id="controlMode">--</h6>
+                                                <small>控制模式</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <h6>控制日誌</h6>
+                                        <div id="controlLog" class="bg-light p-2 rounded" style="height: 200px; overflow-y: auto; font-size: 12px;">
+                                            <div class="text-muted">系統啟動中...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 狀態監控腳本
+let CNumber = "{{CNumber}}";
+
+function updateStatus() {
+    $.get(`/remote/constant-fan-status?N=${CNumber}`)
+        .done(function(data) {
+            // 更新溫度
+            $('#currentTemp').text(data.currentTemp + '°C');
+            
+            // 更新風扇狀態
+            if (data.isRunning) {
+                $('#fanStatus').text('運轉中');
+                $('#fanIcon').addClass('fa-spin text-success');
+            } else {
+                $('#fanStatus').text('停止');
+                $('#fanIcon').removeClass('fa-spin text-success');
+            }
+            
+            // 更新CO2濃度
+            $('#co2Level').text(data.co2Level + ' ppm');
+            
+            // 更新控制模式
+            $('#controlMode').text(data.mode === 'temperature_control' ? '溫控模式' : '間歇模式');
+            
+            // 新增日誌
+            addLog(`狀態更新: 溫度 ${data.currentTemp}°C, 風扇 ${data.isRunning ? '開啟' : '關閉'}`);
+        })
+        .fail(function() {
+            addLog('狀態更新失敗', 'error');
+        });
+}
+
+function addLog(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const logClass = type === 'error' ? 'text-danger' : 'text-dark';
+    const logEntry = `<div class="${logClass}">[${timestamp}] ${message}</div>`;
+    
+    const logContainer = $('#controlLog');
+    logContainer.append(logEntry);
+    logContainer.scrollTop(logContainer[0].scrollHeight);
+    
+    // 限制日誌條數
+    const logEntries = logContainer.children();
+    if (logEntries.length > 50) {
+        logEntries.first().remove();
+    }
+}
+
+// 初始化
+$(document).ready(function() {
+    addLog('系統初始化完成');
+    updateStatus();
+    
+    // 每5秒更新一次狀態
+    setInterval(updateStatus, 5000);
+    
+    // 監聽設定儲存事件
+    $('#AutoBtn').on('click', function() {
+        setTimeout(() => {
+            addLog('設定已儲存並發送控制指令', 'success');
+        }, 1000);
+    });
+});
+</script>
+
+<style>
+.fa-spin {
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bg-primary, .bg-info, .bg-warning, .bg-success {
+    transition: all 0.3s ease;
+}
+
+.bg-primary:hover, .bg-info:hover, .bg-warning:hover, .bg-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+</style>

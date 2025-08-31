@@ -10,6 +10,7 @@ const config = require('./config');
 const databaseService = require('./services/database');
 const mqttBroker = require('./services/mqttBroker');
 const mqttClient = require('./services/mqttClient');
+const onvifService = require('./services/onvifService');
 const Farm = require('./models/Farm');
 
 const app = express();
@@ -53,6 +54,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/snapshots', express.static(path.join(__dirname, 'public/snapshots')));
+app.use('/streams', express.static(path.join(__dirname, 'public/streams')));
 
 // 設定檔案上傳
 const storage = multer.diskStorage({
@@ -518,6 +521,425 @@ app.get('/api/dashboard/carousel-data', async (req, res) => {
     }
 });
 
+// ==================== ONVIF 攝影機管理路由 ====================
+
+// ONVIF攝影機管理頁面
+app.get('/onvif-cameras', async (req, res) => {
+    try {
+        const cameras = onvifService.getConnectedCameras();
+        const streamingCount = cameras.filter(cam => cam.isStreaming).length;
+        const snapshotCount = cameras.filter(cam => cam.lastSnapshot).length;
+        
+        res.render('onvif-cameras', {
+            title: 'ONVIF攝影機管理',
+            cameras: cameras,
+            streamingCount: streamingCount,
+            snapshotCount: snapshotCount
+        });
+    } catch (error) {
+        console.error('載入ONVIF頁面失敗:', error);
+        res.status(500).render('error', { error: '載入頁面失敗: ' + error.message });
+    }
+});
+
+// 搜尋ONVIF攝影機
+app.post('/api/onvif/discover', async (req, res) => {
+    try {
+        console.log('🔍 開始搜尋ONVIF攝影機...');
+        const cameras = await onvifService.discoverCameras(8000);
+        
+        res.json({
+            success: true,
+            cameras: cameras,
+            message: `發現 ${cameras.length} 台攝影機`
+        });
+    } catch (error) {
+        console.error('搜尋攝影機失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '搜尋攝影機失敗: ' + error.message
+        });
+    }
+});
+
+// 連接ONVIF攝影機
+app.post('/api/onvif/connect', async (req, res) => {
+    try {
+        const { ip, port, username, password } = req.body;
+        
+        if (!ip) {
+            return res.status(400).json({
+                success: false,
+                error: '請提供攝影機IP位址'
+            });
+        }
+        
+        console.log(`🔗 嘗試連接攝影機: ${ip}:${port || 80}`);
+        
+        // 連接攝影機
+        const camera = await onvifService.connectCamera(ip, port, username, password);
+        
+        // 獲取配置檔
+        await onvifService.getCameraProfiles(ip);
+        
+        // 獲取串流和快照URI
+        try {
+            await onvifService.getStreamUri(ip);
+            await onvifService.getSnapshotUri(ip);
+        } catch (uriError) {
+            console.warn('獲取URI失敗:', uriError.message);
+        }
+        
+        res.json({
+            success: true,
+            camera: {
+                ip: camera.ip,
+                port: camera.port,
+                info: camera.info,
+                profiles: camera.profiles.length
+            },
+            message: '攝影機連接成功'
+        });
+    } catch (error) {
+        console.error('連接攝影機失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '連接攝影機失敗: ' + error.message
+        });
+    }
+});
+
+// 拍攝快照
+app.post('/api/onvif/snapshot/:ip', async (req, res) => {
+    try {
+        const { ip } = req.params;
+        const filename = `snapshot_${ip}_${Date.now()}.jpg`;
+        
+        console.log(`📸 拍攝快照: ${ip}`);
+        const snapshot = await onvifService.captureSnapshot(ip, filename);
+        
+        res.json({
+            success: true,
+            snapshot: snapshot,
+            message: '快照拍攝成功'
+        });
+    } catch (error) {
+        console.error('拍攝快照失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '拍攝快照失敗: ' + error.message
+        });
+    }
+});
+
+// 開始串流轉換
+app.post('/api/onvif/stream/start/:ip', async (req, res) => {
+    try {
+        const { ip } = req.params;
+        
+        console.log(`🎬 開始串流轉換: ${ip}`);
+        const streamInfo = await onvifService.startStreamConversion(ip);
+        
+        res.json({
+            success: true,
+            stream: streamInfo,
+            message: '串流啟動成功'
+        });
+    } catch (error) {
+        console.error('啟動串流失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '啟動串流失敗: ' + error.message
+        });
+    }
+});
+
+// 停止串流轉換
+app.post('/api/onvif/stream/stop/:ip', async (req, res) => {
+    try {
+        const { ip } = req.params;
+        
+        console.log(`⏹️ 停止串流轉換: ${ip}`);
+        const stopped = onvifService.stopStreamConversion(ip);
+        
+        if (stopped) {
+            res.json({
+                success: true,
+                message: '串流已停止'
+            });
+        } else {
+            res.json({
+                success: false,
+                error: '找不到正在運行的串流'
+            });
+        }
+    } catch (error) {
+        console.error('停止串流失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '停止串流失敗: ' + error.message
+        });
+    }
+});
+
+// 斷開攝影機連接
+app.post('/api/onvif/disconnect/:ip', async (req, res) => {
+    try {
+        const { ip } = req.params;
+        
+        console.log(`🔌 斷開攝影機連接: ${ip}`);
+        onvifService.disconnectCamera(ip);
+        
+        res.json({
+            success: true,
+            message: '攝影機已斷開'
+        });
+    } catch (error) {
+        console.error('斷開攝影機失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '斷開攝影機失敗: ' + error.message
+        });
+    }
+});
+
+// 獲取ONVIF系統狀態
+app.get('/api/onvif/status', (req, res) => {
+    try {
+        const cameras = onvifService.getConnectedCameras();
+        const connectedCount = cameras.length;
+        const streamingCount = cameras.filter(cam => cam.isStreaming).length;
+        const snapshotCount = cameras.filter(cam => cam.lastSnapshot).length;
+        
+        res.json({
+            success: true,
+            connectedCount: connectedCount,
+            streamingCount: streamingCount,
+            snapshotCount: snapshotCount,
+            cameras: cameras
+        });
+    } catch (error) {
+        console.error('獲取ONVIF狀態失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '獲取狀態失敗: ' + error.message
+        });
+    }
+});
+
+// ==================== 輪播系統路由 ====================
+
+// 輪播設定（暫存在記憶體中，實際應用應存在資料庫）
+let carouselSettings = {
+    items: [],
+    interval: 10,
+    autoPlay: true,
+    loop: true,
+    transition: 'fade'
+};
+
+// 輪播頁面
+app.get('/carousel', (req, res) => {
+    try {
+        res.render('carousel', {
+            title: '影像輪播系統',
+            carouselItems: carouselSettings.items,
+            interval: carouselSettings.interval,
+            autoPlay: carouselSettings.autoPlay,
+            loop: carouselSettings.loop,
+            transition: carouselSettings.transition
+        });
+    } catch (error) {
+        console.error('載入輪播頁面失敗:', error);
+        res.status(500).render('error', { error: '載入頁面失敗: ' + error.message });
+    }
+});
+
+// 新增攝影機到輪播
+app.post('/api/carousel/add-camera', (req, res) => {
+    try {
+        const { ip, streamUrl } = req.body;
+        
+        if (!ip || !streamUrl) {
+            return res.status(400).json({
+                success: false,
+                error: '缺少必要參數'
+            });
+        }
+        
+        // 檢查是否已存在
+        const existingIndex = carouselSettings.items.findIndex(item => 
+            item.type === 'camera' && item.source === streamUrl
+        );
+        
+        if (existingIndex !== -1) {
+            return res.json({
+                success: false,
+                error: '此攝影機已在輪播列表中'
+            });
+        }
+        
+        // 新增到輪播列表
+        const newItem = {
+            id: Date.now().toString(),
+            type: 'camera',
+            title: `攝影機 ${ip}`,
+            source: streamUrl,
+            addedAt: new Date()
+        };
+        
+        carouselSettings.items.push(newItem);
+        
+        console.log(`✅ 已新增攝影機到輪播: ${ip}`);
+        
+        res.json({
+            success: true,
+            item: newItem,
+            message: '已新增到輪播列表'
+        });
+    } catch (error) {
+        console.error('新增攝影機到輪播失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '新增失敗: ' + error.message
+        });
+    }
+});
+
+// 移除輪播項目
+app.post('/api/carousel/remove-item', (req, res) => {
+    try {
+        const { index } = req.body;
+        
+        if (index < 0 || index >= carouselSettings.items.length) {
+            return res.status(400).json({
+                success: false,
+                error: '無效的項目索引'
+            });
+        }
+        
+        const removedItem = carouselSettings.items.splice(index, 1)[0];
+        
+        console.log(`🗑️ 已移除輪播項目: ${removedItem.title}`);
+        
+        res.json({
+            success: true,
+            removedItem: removedItem,
+            message: '項目已移除'
+        });
+    } catch (error) {
+        console.error('移除輪播項目失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '移除失敗: ' + error.message
+        });
+    }
+});
+
+// 移動輪播項目
+app.post('/api/carousel/move-item', (req, res) => {
+    try {
+        const { index, direction } = req.body;
+        const newIndex = index + direction;
+        
+        if (index < 0 || index >= carouselSettings.items.length ||
+            newIndex < 0 || newIndex >= carouselSettings.items.length) {
+            return res.status(400).json({
+                success: false,
+                error: '無效的移動操作'
+            });
+        }
+        
+        // 交換項目
+        [carouselSettings.items[index], carouselSettings.items[newIndex]] = 
+        [carouselSettings.items[newIndex], carouselSettings.items[index]];
+        
+        console.log(`🔄 已移動輪播項目: ${index} -> ${newIndex}`);
+        
+        res.json({
+            success: true,
+            message: '項目已移動'
+        });
+    } catch (error) {
+        console.error('移動輪播項目失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '移動失敗: ' + error.message
+        });
+    }
+});
+
+// 清空所有輪播項目
+app.post('/api/carousel/clear-all', (req, res) => {
+    try {
+        const itemCount = carouselSettings.items.length;
+        carouselSettings.items = [];
+        
+        console.log(`🧹 已清空所有輪播項目 (${itemCount} 個)`);
+        
+        res.json({
+            success: true,
+            clearedCount: itemCount,
+            message: '所有項目已清空'
+        });
+    } catch (error) {
+        console.error('清空輪播項目失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '清空失敗: ' + error.message
+        });
+    }
+});
+
+// 更新輪播設定
+app.post('/api/carousel/settings', (req, res) => {
+    try {
+        const { interval, autoPlay, loop, transition } = req.body;
+        
+        if (interval) carouselSettings.interval = Math.max(1, Math.min(300, interval));
+        if (typeof autoPlay === 'boolean') carouselSettings.autoPlay = autoPlay;
+        if (typeof loop === 'boolean') carouselSettings.loop = loop;
+        if (transition) carouselSettings.transition = transition;
+        
+        console.log('⚙️ 已更新輪播設定:', {
+            interval: carouselSettings.interval,
+            autoPlay: carouselSettings.autoPlay,
+            loop: carouselSettings.loop,
+            transition: carouselSettings.transition
+        });
+        
+        res.json({
+            success: true,
+            settings: carouselSettings,
+            message: '設定已更新'
+        });
+    } catch (error) {
+        console.error('更新輪播設定失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '更新失敗: ' + error.message
+        });
+    }
+});
+
+// 獲取輪播狀態
+app.get('/api/carousel/status', (req, res) => {
+    try {
+        res.json({
+            success: true,
+            itemCount: carouselSettings.items.length,
+            settings: carouselSettings,
+            items: carouselSettings.items
+        });
+    } catch (error) {
+        console.error('獲取輪播狀態失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '獲取狀態失敗: ' + error.message
+        });
+    }
+});
+
 // 錯誤處理頁面
 app.use((req, res) => {
     res.status(404).render('error', { error: '頁面不存在' });
@@ -578,6 +1000,200 @@ async function startServer() {
     }
 }
 
+// 定頻風扇控制API
+app.get('/remote/constant-fan', async (req, res) => {
+    try {
+        const deviceNumber = req.query.N;
+        if (!deviceNumber) {
+            return res.status(400).json({ error: '缺少設備編號' });
+        }
+        
+        // 從資料庫載入設定（這裡暫時使用預設值）
+        const defaultSettings = {
+            sensorOne: 'none',
+            sensorTwo: 'none',
+            startTemp: 28,
+            stopTemp: 25,
+            co2Threshold: 1500,
+            isEnable: false,
+            isCo2Enable: false,
+            isIntermittentMode: false,
+            onMinutes: 15,
+            offMinutes: 45,
+            isDailyEnable: true,
+            Day: [1, 3, 4, 5, 7, 10, 15, 20, 23, 30],
+            ST: [30, 29, 28, 27, 26, 25, 24, 23, 22, 21],
+            ET: [27, 26, 25, 24, 23, 22, 21, 20, 19, 18],
+            SMVS: [15, 15, 15, 15, 15, 15, 15, 15, 15, 15],
+            SMVT: [45, 45, 45, 45, 45, 45, 45, 45, 45, 45]
+        };
+        
+        console.log(`載入定頻風扇設定 - 設備: ${deviceNumber}`);
+        res.json(defaultSettings);
+    } catch (error) {
+        console.error('載入定頻風扇設定失敗:', error);
+        res.status(500).json({ error: '載入設定失敗: ' + error.message });
+    }
+});
+
+app.post('/remote/constant-fan', async (req, res) => {
+    try {
+        const {
+            CNumber,
+            deviceType,
+            sensorOne,
+            sensorTwo,
+            startTemp,
+            stopTemp,
+            co2Threshold,
+            isEnable,
+            isCo2Enable,
+            isIntermittentMode,
+            onMinutes,
+            offMinutes,
+            isDailyEnable,
+            Day,
+            ST,
+            ET,
+            SMVS,
+            SMVT
+        } = req.body;
+        
+        console.log('收到定頻風扇設定:', {
+            設備編號: CNumber,
+            溫度感測器: sensorOne,
+            開啟溫度: startTemp,
+            關閉溫度: stopTemp,
+            間歇模式: isIntermittentMode,
+            開啟分鐘: onMinutes,
+            關閉分鐘: offMinutes
+        });
+        
+        // 驗證設定
+        if (!sensorOne || sensorOne === 'none') {
+            return res.status(400).json({ error: '請選擇溫度感測器' });
+        }
+        
+        if (startTemp <= stopTemp) {
+            return res.status(400).json({ error: '開啟溫度必須高於關閉溫度' });
+        }
+        
+        // 儲存設定到資料庫或發送MQTT指令
+        const controlCommand = {
+            device: CNumber,
+            type: 'constant_fan_control',
+            settings: {
+                sensorOne,
+                sensorTwo,
+                startTemp,
+                stopTemp,
+                co2Threshold,
+                isEnable,
+                isCo2Enable,
+                isIntermittentMode,
+                onMinutes,
+                offMinutes,
+                isDailyEnable,
+                dailySchedule: {
+                    Day,
+                    startTemps: ST,
+                    stopTemps: ET,
+                    onMinutes: SMVS,
+                    offMinutes: SMVT
+                }
+            },
+            timestamp: new Date().toISOString()
+        };
+        
+        // 發送MQTT控制指令
+        if (mqttClient && mqttClient.isConnected) {
+            const topic = `device/${CNumber}/control`;
+            mqttClient.publish(topic, JSON.stringify(controlCommand));
+            console.log(`✅ 已發送定頻風扇控制指令到 ${topic}`);
+        }
+        
+        res.json({ 
+            success: true, 
+            message: '定頻風扇設定已儲存',
+            command: controlCommand 
+        });
+        
+    } catch (error) {
+        console.error('儲存定頻風扇設定失敗:', error);
+        res.status(500).json({ error: '儲存失敗: ' + error.message });
+    }
+});
+
+// 定頻風扇演示頁面
+app.get('/demo/constant-fan', async (req, res) => {
+    try {
+        const deviceNumber = req.query.N || 'DEV001';
+        
+        res.render('constant-fan-demo', {
+            title: '定頻風扇溫控系統演示',
+            CNumber: deviceNumber
+        });
+    } catch (error) {
+        console.error('載入演示頁面失敗:', error);
+        res.status(500).render('error', { error: '載入演示頁面失敗: ' + error.message });
+    }
+});
+
+// 定頻風扇控制頁面
+app.get('/remote/constant-fan-page', async (req, res) => {
+    try {
+        const deviceNumber = req.query.N || 'DEV001';
+        
+        // 模擬感測器資料
+        const sensorsdata = [
+            { SN: '11A001', DES: '溫度感測器1' },
+            { SN: '11A002', DES: '溫度感測器2' },
+            { SN: '16A001', DES: '溫度感測器3' },
+            { SN: '21A001', DES: 'CO2感測器1' },
+            { SN: '21A002', DES: 'CO2感測器2' }
+        ];
+        
+        res.render('constant-fan', {
+            title: '定頻風扇溫控設定',
+            CNumber: deviceNumber,
+            deviceType: 'constant_fan',
+            sensorsdata: sensorsdata
+        });
+    } catch (error) {
+        console.error('載入定頻風扇頁面失敗:', error);
+        res.status(500).render('error', { error: '載入頁面失敗: ' + error.message });
+    }
+});
+
+// 取得定頻風扇狀態
+app.get('/remote/constant-fan-status', async (req, res) => {
+    try {
+        const deviceNumber = req.query.N;
+        if (!deviceNumber) {
+            return res.status(400).json({ error: '缺少設備編號' });
+        }
+        
+        // 模擬風扇狀態
+        const fanStatus = {
+            device: deviceNumber,
+            isRunning: Math.random() > 0.5,
+            currentTemp: (20 + Math.random() * 15).toFixed(1),
+            targetStartTemp: 28,
+            targetStopTemp: 25,
+            mode: 'temperature_control',
+            co2Level: Math.floor(400 + Math.random() * 1000),
+            lastUpdate: new Date().toISOString()
+        };
+        
+        res.json(fanStatus);
+    } catch (error) {
+        console.error('取得風扇狀態失敗:', error);
+        res.status(500).json({ error: '取得狀態失敗: ' + error.message });
+    }
+});
+
+
+
 // 優雅關閉處理
 process.on('SIGINT', async () => {
     console.log('\n收到終止信號，正在關閉系統...');
@@ -585,6 +1201,10 @@ process.on('SIGINT', async () => {
     try {
         if (mqttClient) {
             mqttClient.close();
+        }
+        
+        if (onvifService) {
+            onvifService.cleanup();
         }
         
         if (databaseService) {

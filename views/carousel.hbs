@@ -1,0 +1,694 @@
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-images me-2"></i>影像輪播系統</h2>
+            <div>
+                <button class="btn btn-primary me-2" onclick="toggleAutoPlay()">
+                    <i id="autoPlayIcon" class="fas fa-{{#if autoPlay}}pause{{else}}play{{/if}} me-1"></i>
+                    <span id="autoPlayText">{{#if autoPlay}}暫停{{else}}播放{{/if}}</span>
+                </button>
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                    <i class="fas fa-cog me-1"></i>設定
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 輪播控制面板 -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">輪播項目</h6>
+                        <h3 id="carouselItemCount">{{carouselItems.length}}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-images fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">切換間隔</h6>
+                        <h3 id="intervalDisplay">{{interval}}秒</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">目前項目</h6>
+                        <h3 id="currentItemIndex">1</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-eye fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">狀態</h6>
+                        <h3 id="playStatus">{{#if autoPlay}}播放中{{else}}已暫停{{/if}}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-{{#if autoPlay}}play{{else}}pause{{/if}} fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 主要輪播區域 -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">主要顯示區域</h5>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-sm btn-outline-primary" onclick="previousItem()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="nextItem()">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="toggleFullscreen()">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="carouselContainer" class="position-relative bg-dark" style="min-height: 400px;">
+                    {{#if carouselItems.length}}
+                        <div id="mainDisplay" class="w-100 h-100 d-flex align-items-center justify-content-center">
+                            <!-- 動態內容將在這裡顯示 -->
+                        </div>
+                        <div class="position-absolute bottom-0 start-0 end-0 bg-dark bg-opacity-75 text-white p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div id="currentItemInfo">
+                                    <small id="itemTitle">載入中...</small>
+                                </div>
+                                <div>
+                                    <small id="itemCounter">1 / {{carouselItems.length}}</small>
+                                </div>
+                            </div>
+                            <div class="progress mt-1" style="height: 3px;">
+                                <div id="progressBar" class="progress-bar bg-primary" role="progressbar" 
+                                     style="width: 0%"></div>
+                            </div>
+                        </div>
+                    {{else}}
+                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                            <div class="text-center py-5">
+                                <i class="fas fa-images fa-4x mb-3"></i>
+                                <h5>尚未新增任何輪播項目</h5>
+                                <p>請先到「ONVIF攝影機管理」頁面新增攝影機串流</p>
+                                <a href="/onvif-cameras" class="btn btn-primary">
+                                    <i class="fas fa-video me-1"></i>管理攝影機
+                                </a>
+                            </div>
+                        </div>
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 輪播項目列表 -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">輪播項目列表</h5>
+            </div>
+            <div class="card-body p-0">
+                <div id="carouselItemsList" style="max-height: 500px; overflow-y: auto;">
+                    {{#if carouselItems.length}}
+                        {{#each carouselItems}}
+                        <div class="list-group-item list-group-item-action carousel-item-entry" 
+                             data-index="{{@index}}" data-type="{{type}}" data-source="{{source}}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">{{title}}</h6>
+                                    <p class="mb-1 text-muted small">
+                                        {{#eq type "camera"}}
+                                            <i class="fas fa-video me-1"></i>攝影機串流
+                                        {{else}}
+                                            <i class="fas fa-image me-1"></i>靜態圖片
+                                        {{/eq}}
+                                    </p>
+                                    <small class="text-muted">{{source}}</small>
+                                </div>
+                                <div class="btn-group-vertical" role="group">
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="moveItem({{@index}}, -1)" {{#if @first}}disabled{{/if}}>
+                                        <i class="fas fa-chevron-up"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="moveItem({{@index}}, 1)" {{#if @last}}disabled{{/if}}>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            onclick="removeItem({{@index}})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {{/each}}
+                    {{else}}
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <p>暫無輪播項目</p>
+                        </div>
+                    {{/if}}
+                </div>
+            </div>
+            {{#if carouselItems.length}}
+            <div class="card-footer">
+                <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearAllItems()">
+                    <i class="fas fa-trash me-1"></i>清空所有項目
+                </button>
+            </div>
+            {{/if}}
+        </div>
+    </div>
+</div>
+
+<!-- 設定模態框 -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">輪播設定</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="settingsForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="carouselInterval" class="form-label">切換間隔（秒）</label>
+                        <input type="number" class="form-control" id="carouselInterval" 
+                               value="{{interval}}" min="1" max="300">
+                        <div class="form-text">設定每個項目顯示的時間長度</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="autoStartCarousel" 
+                                   {{#if autoPlay}}checked{{/if}}>
+                            <label class="form-check-label" for="autoStartCarousel">
+                                自動開始播放
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="loopCarousel" 
+                                   {{#if loop}}checked{{/if}}>
+                            <label class="form-check-label" for="loopCarousel">
+                                循環播放
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="transitionEffect" class="form-label">轉場效果</label>
+                        <select class="form-select" id="transitionEffect">
+                            <option value="fade" {{#eq transition "fade"}}selected{{/eq}}>淡入淡出</option>
+                            <option value="slide" {{#eq transition "slide"}}selected{{/eq}}>滑動</option>
+                            <option value="none" {{#eq transition "none"}}selected{{/eq}}>無效果</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">儲存設定</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+class CarouselManager {
+    constructor() {
+        this.items = {{{json carouselItems}}};
+        this.currentIndex = 0;
+        this.isPlaying = {{#if autoPlay}}true{{else}}false{{/if}};
+        this.interval = {{interval}} * 1000; // 轉換為毫秒
+        this.loop = {{#if loop}}true{{else}}false{{/if}};
+        this.transition = '{{transition}}';
+        this.timer = null;
+        this.progressTimer = null;
+        this.currentHls = null;
+        
+        this.init();
+    }
+    
+    init() {
+        if (this.items.length > 0) {
+            this.showItem(0);
+            if (this.isPlaying) {
+                this.startAutoPlay();
+            }
+        }
+        
+        // 綁定鍵盤事件
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft':
+                    this.previousItem();
+                    break;
+                case 'ArrowRight':
+                    this.nextItem();
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    this.toggleAutoPlay();
+                    break;
+                case 'Escape':
+                    this.exitFullscreen();
+                    break;
+            }
+        });
+    }
+    
+    showItem(index) {
+        if (index < 0 || index >= this.items.length) return;
+        
+        this.currentIndex = index;
+        const item = this.items[index];
+        const mainDisplay = document.getElementById('mainDisplay');
+        
+        // 清理之前的HLS實例
+        if (this.currentHls) {
+            this.currentHls.destroy();
+            this.currentHls = null;
+        }
+        
+        // 更新顯示內容
+        if (item.type === 'camera') {
+            this.showCameraStream(item, mainDisplay);
+        } else {
+            this.showImage(item, mainDisplay);
+        }
+        
+        // 更新資訊
+        this.updateItemInfo(item, index);
+        this.highlightCurrentItem(index);
+        
+        // 重置進度條
+        this.resetProgressBar();
+        if (this.isPlaying) {
+            this.startProgressBar();
+        }
+    }
+    
+    showCameraStream(item, container) {
+        container.innerHTML = `
+            <video id="carouselVideo" class="w-100 h-100" 
+                   style="object-fit: contain; max-height: 400px;" 
+                   muted autoplay>
+                您的瀏覽器不支援影片播放
+            </video>
+        `;
+        
+        const video = document.getElementById('carouselVideo');
+        
+        if (Hls.isSupported()) {
+            this.currentHls = new Hls({
+                enableWorker: false,
+                lowLatencyMode: true,
+                backBufferLength: 90
+            });
+            this.currentHls.loadSource(item.source);
+            this.currentHls.attachMedia(video);
+            this.currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(e => console.warn('自動播放失敗:', e));
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = item.source;
+            video.addEventListener('loadedmetadata', () => {
+                video.play().catch(e => console.warn('自動播放失敗:', e));
+            });
+        }
+    }
+    
+    showImage(item, container) {
+        container.innerHTML = `
+            <img src="${item.source}" class="img-fluid" 
+                 style="max-width: 100%; max-height: 400px; object-fit: contain;" 
+                 alt="${item.title}">
+        `;
+    }
+    
+    updateItemInfo(item, index) {
+        document.getElementById('itemTitle').textContent = item.title;
+        document.getElementById('itemCounter').textContent = `${index + 1} / ${this.items.length}`;
+        document.getElementById('currentItemIndex').textContent = index + 1;
+    }
+    
+    highlightCurrentItem(index) {
+        // 移除所有高亮
+        document.querySelectorAll('.carousel-item-entry').forEach(el => {
+            el.classList.remove('active');
+        });
+        
+        // 高亮當前項目
+        const currentItem = document.querySelector(`[data-index="${index}"]`);
+        if (currentItem) {
+            currentItem.classList.add('active');
+            currentItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+    
+    nextItem() {
+        let nextIndex = this.currentIndex + 1;
+        if (nextIndex >= this.items.length) {
+            if (this.loop) {
+                nextIndex = 0;
+            } else {
+                this.stopAutoPlay();
+                return;
+            }
+        }
+        this.showItem(nextIndex);
+    }
+    
+    previousItem() {
+        let prevIndex = this.currentIndex - 1;
+        if (prevIndex < 0) {
+            if (this.loop) {
+                prevIndex = this.items.length - 1;
+            } else {
+                return;
+            }
+        }
+        this.showItem(prevIndex);
+    }
+    
+    startAutoPlay() {
+        this.isPlaying = true;
+        this.timer = setInterval(() => {
+            this.nextItem();
+        }, this.interval);
+        
+        this.updatePlayStatus();
+    }
+    
+    stopAutoPlay() {
+        this.isPlaying = false;
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        if (this.progressTimer) {
+            clearInterval(this.progressTimer);
+            this.progressTimer = null;
+        }
+        
+        this.updatePlayStatus();
+    }
+    
+    toggleAutoPlay() {
+        if (this.isPlaying) {
+            this.stopAutoPlay();
+        } else {
+            this.startAutoPlay();
+        }
+    }
+    
+    updatePlayStatus() {
+        const playBtn = document.querySelector('button[onclick="toggleAutoPlay()"]');
+        const icon = document.getElementById('autoPlayIcon');
+        const text = document.getElementById('autoPlayText');
+        const status = document.getElementById('playStatus');
+        
+        if (this.isPlaying) {
+            icon.className = 'fas fa-pause me-1';
+            text.textContent = '暫停';
+            status.textContent = '播放中';
+        } else {
+            icon.className = 'fas fa-play me-1';
+            text.textContent = '播放';
+            status.textContent = '已暫停';
+        }
+    }
+    
+    startProgressBar() {
+        const progressBar = document.getElementById('progressBar');
+        let progress = 0;
+        const increment = 100 / (this.interval / 100);
+        
+        this.progressTimer = setInterval(() => {
+            progress += increment;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(this.progressTimer);
+            }
+            progressBar.style.width = progress + '%';
+        }, 100);
+    }
+    
+    resetProgressBar() {
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        if (this.progressTimer) {
+            clearInterval(this.progressTimer);
+            this.progressTimer = null;
+        }
+    }
+    
+    updateSettings(settings) {
+        this.interval = settings.interval * 1000;
+        this.loop = settings.loop;
+        this.transition = settings.transition;
+        
+        document.getElementById('intervalDisplay').textContent = settings.interval + '秒';
+        
+        // 如果正在播放，重新啟動定時器
+        if (this.isPlaying) {
+            this.stopAutoPlay();
+            this.startAutoPlay();
+        }
+    }
+    
+    removeItem(index) {
+        if (index < 0 || index >= this.items.length) return;
+        
+        this.items.splice(index, 1);
+        
+        // 調整當前索引
+        if (this.currentIndex >= this.items.length) {
+            this.currentIndex = Math.max(0, this.items.length - 1);
+        }
+        
+        // 更新顯示
+        if (this.items.length > 0) {
+            this.showItem(this.currentIndex);
+        }
+        
+        document.getElementById('carouselItemCount').textContent = this.items.length;
+    }
+    
+    moveItem(fromIndex, direction) {
+        const toIndex = fromIndex + direction;
+        if (toIndex < 0 || toIndex >= this.items.length) return;
+        
+        // 交換項目
+        [this.items[fromIndex], this.items[toIndex]] = [this.items[toIndex], this.items[fromIndex]];
+        
+        // 調整當前索引
+        if (this.currentIndex === fromIndex) {
+            this.currentIndex = toIndex;
+        } else if (this.currentIndex === toIndex) {
+            this.currentIndex = fromIndex;
+        }
+    }
+    
+    clearAll() {
+        this.stopAutoPlay();
+        this.items = [];
+        this.currentIndex = 0;
+        
+        document.getElementById('mainDisplay').innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-images fa-4x mb-3"></i>
+                <h5>輪播列表已清空</h5>
+            </div>
+        `;
+        
+        document.getElementById('carouselItemCount').textContent = '0';
+    }
+}
+
+// 全域變數
+let carouselManager;
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => {
+    carouselManager = new CarouselManager();
+});
+
+// 全域函數
+function toggleAutoPlay() {
+    carouselManager.toggleAutoPlay();
+}
+
+function nextItem() {
+    carouselManager.nextItem();
+}
+
+function previousItem() {
+    carouselManager.previousItem();
+}
+
+function removeItem(index) {
+    if (confirm('確定要移除此項目嗎？')) {
+        carouselManager.removeItem(index);
+        
+        // 發送到後端更新
+        fetch('/api/carousel/remove-item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ index: index })
+        });
+        
+        // 重新載入頁面以更新列表
+        setTimeout(() => location.reload(), 500);
+    }
+}
+
+function moveItem(index, direction) {
+    carouselManager.moveItem(index, direction);
+    
+    // 發送到後端更新
+    fetch('/api/carousel/move-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ index: index, direction: direction })
+    });
+    
+    // 重新載入頁面以更新列表
+    setTimeout(() => location.reload(), 500);
+}
+
+function clearAllItems() {
+    if (confirm('確定要清空所有輪播項目嗎？')) {
+        carouselManager.clearAll();
+        
+        // 發送到後端更新
+        fetch('/api/carousel/clear-all', {
+            method: 'POST'
+        });
+        
+        // 重新載入頁面
+        setTimeout(() => location.reload(), 500);
+    }
+}
+
+function toggleFullscreen() {
+    const container = document.getElementById('carouselContainer');
+    
+    if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(err => {
+            console.warn('無法進入全螢幕模式:', err);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+// 設定表單處理
+document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const settings = {
+        interval: parseInt(document.getElementById('carouselInterval').value),
+        autoPlay: document.getElementById('autoStartCarousel').checked,
+        loop: document.getElementById('loopCarousel').checked,
+        transition: document.getElementById('transitionEffect').value
+    };
+    
+    try {
+        const response = await fetch('/api/carousel/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            carouselManager.updateSettings(settings);
+            bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
+            
+            // 顯示成功訊息
+            showToast('success', '設定已儲存');
+        } else {
+            showToast('error', result.error || '儲存失敗');
+        }
+    } catch (error) {
+        console.error('儲存設定錯誤:', error);
+        showToast('error', '儲存設定失敗');
+    }
+});
+
+// 工具函數
+function showToast(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+             style="top: 20px; right: 20px; z-index: 10000;">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', alertHtml);
+    
+    setTimeout(() => {
+        const alert = document.querySelector('.alert');
+        if (alert) alert.remove();
+    }, 5000);
+}
+
+// CSS樣式
+const style = document.createElement('style');
+style.textContent = `
+    .carousel-item-entry.active {
+        background-color: #e3f2fd !important;
+        border-left: 4px solid #2196f3 !important;
+    }
+    
+    #carouselContainer:fullscreen {
+        background: black !important;
+    }
+    
+    #carouselContainer:fullscreen #mainDisplay {
+        height: 100vh !important;
+    }
+    
+    .progress {
+        transition: none !important;
+    }
+`;
+document.head.appendChild(style);
+</script>
