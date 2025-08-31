@@ -110,7 +110,7 @@
                                                  data-sensor-id="{{this.id}}">
                                             <div class="sensor-card {{#if this.lastValue.currentValues}}active{{else}}inactive{{/if}}">
                                                 <div class="sensor-info">
-                                                    <div class="sensor-name">{{this.name}}</div>
+                                                    <div class="sensor-name">{{#if this.description}}{{this.description}}{{else}}{{this.name}}{{/if}}</div>
                                                     {{#if this.lastValue.currentValues}}
                                                     <div class="sensor-values">
                                                         {{#each this.lastValue.currentValues}}

@@ -184,7 +184,13 @@
                     {{#each farm.sensors}}
                     <div class="list-group-item d-flex justify-content-between align-items-center">
                         <div>
+                            {{#if this.description}}
+                            <strong>{{this.description}}</strong>
+                            <br>
+                            <small class="text-muted">類型名稱: {{this.name}}</small>
+                            {{else}}
                             <strong>{{this.name}}</strong>
+                            {{/if}}
                             <br>
                             <small class="text-muted">類型: {{this.type}}</small>
                             {{#if this.deviceName}}
