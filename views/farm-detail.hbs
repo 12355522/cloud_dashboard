@@ -1236,26 +1236,35 @@ function validateSensorValueConfig(config, valueType) {
     const typeName = getValueTypeName(valueType);
     
     // 檢查正常範圍
-    if (config.min >= config.max) {
+    if (config.normal.min >= config.normal.max) {
         alert(`${typeName} 正常範圍設定錯誤：最小值必須小於最大值`);
         return false;
     }
     
-    // 檢查警告範圍
-    if (config.warning.min >= config.warning.max) {
-        alert(`${typeName} 警告範圍設定錯誤：最小值必須小於最大值`);
+    // 檢查偏差值必須為正數
+    if (config.warning.offset < 0) {
+        alert(`${typeName} 警告偏差不能為負數`);
         return false;
     }
     
-    // 檢查危險範圍
-    if (config.danger.min >= config.danger.max) {
-        alert(`${typeName} 危險範圍設定錯誤：最小值必須小於最大值`);
+    if (config.danger.offset < 0) {
+        alert(`${typeName} 危險偏差不能為負數`);
         return false;
     }
     
-    // 檢查臨界範圍
-    if (config.critical.min >= config.critical.max) {
-        alert(`${typeName} 臨界範圍設定錯誤：最小值必須小於最大值`);
+    if (config.critical.offset < 0) {
+        alert(`${typeName} 臨界偏差不能為負數`);
+        return false;
+    }
+    
+    // 檢查偏差遞增關係
+    if (config.warning.offset >= config.danger.offset) {
+        alert(`${typeName} 危險偏差必須大於警告偏差`);
+        return false;
+    }
+    
+    if (config.danger.offset >= config.critical.offset) {
+        alert(`${typeName} 臨界偏差必須大於危險偏差`);
         return false;
     }
     
@@ -1276,6 +1285,11 @@ function updateConfigIndicator(sensorId, hasConfig) {
             }
         }
     }
+}
+
+// 存根函數：為了與其他頁面的兼容性而提供的空實現
+function adjustOverlayToImage(img) {
+    console.log('Farm Detail: adjustOverlayToImage 被調用，但在此頁面不執行任何操作');
 }
 </script>
 
