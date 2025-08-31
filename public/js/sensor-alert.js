@@ -27,46 +27,40 @@ class SensorAlertSystem {
     getDefaultAlertConfig() {
         return {
             temperature: {
-                min: 15,
-                max: 35,
-                warning: { min: 10, max: 40 },
-                danger: { min: 5, max: 45 },
-                critical: { min: 0, max: 50 }
+                normal: { min: 15, max: 35 },
+                warning: { offset: 5 },   // ±5°C 警告
+                danger: { offset: 10 },   // ±10°C 危險
+                critical: { offset: 15 }  // ±15°C 臨界
             },
             humidity: {
-                min: 40,
-                max: 80,
-                warning: { min: 30, max: 90 },
-                danger: { min: 20, max: 95 },
-                critical: { min: 10, max: 100 }
+                normal: { min: 40, max: 80 },
+                warning: { offset: 10 },  // ±10% 警告
+                danger: { offset: 20 },   // ±20% 危險
+                critical: { offset: 30 }  // ±30% 臨界
             },
             co2: {
-                min: 300,
-                max: 1000,
-                warning: { min: 200, max: 1500 },
-                danger: { min: 100, max: 2000 },
-                critical: { min: 50, max: 3000 }
+                normal: { min: 300, max: 1000 },
+                warning: { offset: 200 },  // ±200ppm 警告
+                danger: { offset: 500 },   // ±500ppm 危險
+                critical: { offset: 1000 } // ±1000ppm 臨界
             },
             water: {
-                min: 0,
-                max: 100,
-                warning: { min: 0, max: 100 },
-                danger: { min: 0, max: 100 },
-                critical: { min: 0, max: 100 }
+                normal: { min: 0, max: 100 },
+                warning: { offset: 5 },   // ±5% 警告
+                danger: { offset: 10 },   // ±10% 危險
+                critical: { offset: 20 }  // ±20% 臨界
             },
             pressure: {
-                min: 900,
-                max: 1100,
-                warning: { min: 850, max: 1150 },
-                danger: { min: 800, max: 1200 },
-                critical: { min: 750, max: 1250 }
+                normal: { min: 900, max: 1100 },
+                warning: { offset: 50 },  // ±50hPa 警告
+                danger: { offset: 100 },  // ±100hPa 危險
+                critical: { offset: 150 } // ±150hPa 臨界
             },
             wind: {
-                min: 0,
-                max: 20,
-                warning: { min: 0, max: 30 },
-                danger: { min: 0, max: 40 },
-                critical: { min: 0, max: 50 }
+                normal: { min: 0, max: 20 },
+                warning: { offset: 5 },   // ±5 m/s 警告
+                danger: { offset: 10 },   // ±10 m/s 危險
+                critical: { offset: 20 }  // ±20 m/s 臨界
             }
         };
     }
@@ -124,22 +118,35 @@ class SensorAlertSystem {
         }
 
         let level = 'normal';
-        let message = '';
+        let message = `感測器 ${sensorId} ${valueType}數值正常`;
 
-        // 檢查是否為臨界值
-        if (numValue <= config.critical.min || numValue >= config.critical.max) {
-            level = 'critical';
-            message = `感測器 ${sensorId} ${valueType}數值 ${numValue}${unit} 超出臨界範圍！`;
-        }
-        // 檢查是否為危險值
-        else if (numValue <= config.danger.min || numValue >= config.danger.max) {
-            level = 'danger';
-            message = `感測器 ${sensorId} ${valueType}數值 ${numValue}${unit} 超出危險範圍！`;
-        }
-        // 檢查是否為警告值
-        else if (numValue <= config.warning.min || numValue >= config.warning.max) {
-            level = 'warning';
-            message = `感測器 ${sensorId} ${valueType}數值 ${numValue}${unit} 超出警告範圍！`;
+        // 檢查是否在正常範圍內
+        if (numValue >= config.normal.min && numValue <= config.normal.max) {
+            // 在正常範圍內，不需要警報
+            level = 'normal';
+        } else {
+            // 超出正常範圍，計算偏差程度
+            let deviation = 0;
+            if (numValue < config.normal.min) {
+                deviation = config.normal.min - numValue;
+            } else if (numValue > config.normal.max) {
+                deviation = numValue - config.normal.max;
+            }
+
+            // 根據偏差程度判定警報等級
+            if (deviation >= config.critical.offset) {
+                level = 'critical';
+                message = `感測器 ${sensorId} ${valueType}數值 ${numValue}${unit} 超出正常範圍 ${deviation.toFixed(1)}${unit}，達到臨界等級！`;
+            } else if (deviation >= config.danger.offset) {
+                level = 'danger';
+                message = `感測器 ${sensorId} ${valueType}數值 ${numValue}${unit} 超出正常範圍 ${deviation.toFixed(1)}${unit}，達到危險等級！`;
+            } else if (deviation >= config.warning.offset) {
+                level = 'warning';
+                message = `感測器 ${sensorId} ${valueType}數值 ${numValue}${unit} 超出正常範圍 ${deviation.toFixed(1)}${unit}，達到警告等級！`;
+            } else {
+                level = 'normal';
+                message = `感測器 ${sensorId} ${valueType}數值正常`;
+            }
         }
 
         return {
@@ -644,7 +651,7 @@ class SensorAlertSystem {
             this.addOfflineIcon(element);
         });
 
-        // 更新感測器列表項目
+        // 更新感測器列表項目（如果存在）
         const listItem = document.querySelector(`[data-sensor-id="${sensorId}"].sensor-list-item`);
         if (listItem) {
             listItem.classList.add('sensor-offline');
@@ -653,6 +660,16 @@ class SensorAlertSystem {
             const statusIndicator = listItem.querySelector('.alert-status-indicator');
             if (statusIndicator) {
                 statusIndicator.innerHTML = '<span class="badge bg-secondary">離線</span>';
+            }
+        }
+        
+        // 安全地調用 updateSensorListItem（如果存在）
+        if (typeof updateSensorListItem === 'function') {
+            try {
+                const sensorData = { id: sensorId, status: 'offline' };
+                updateSensorListItem(sensorData);
+            } catch (error) {
+                console.warn('調用 updateSensorListItem 失敗:', error);
             }
         }
     }
@@ -672,7 +689,7 @@ class SensorAlertSystem {
             this.removeOfflineIcon(element);
         });
 
-        // 更新感測器列表項目
+        // 更新感測器列表項目（如果存在）
         const listItem = document.querySelector(`[data-sensor-id="${sensorId}"].sensor-list-item`);
         if (listItem) {
             listItem.classList.remove('sensor-offline');
@@ -681,6 +698,16 @@ class SensorAlertSystem {
             const statusIndicator = listItem.querySelector('.alert-status-indicator');
             if (statusIndicator) {
                 statusIndicator.innerHTML = '';
+            }
+        }
+        
+        // 安全地調用 updateSensorListItem（如果存在）
+        if (typeof updateSensorListItem === 'function') {
+            try {
+                const sensorData = { id: sensorId, status: 'online' };
+                updateSensorListItem(sensorData);
+            } catch (error) {
+                console.warn('調用 updateSensorListItem 失敗:', error);
             }
         }
     }

@@ -1197,4 +1197,11 @@ function clearAllDashboardAlerts() {
     
     console.log('已清除所有警報樣式');
 }
+
+// 提供 updateSensorListItem 存根函數，避免在 dashboard 頁面出錯
+function updateSensorListItem(sensor) {
+    // Dashboard 頁面不需要感測器列表更新功能
+    // 這是一個存根函數，防止警報系統調用時出錯
+    console.log('Dashboard: updateSensorListItem 被調用，但在此頁面不執行任何操作');
+}
 </script>
