@@ -281,13 +281,33 @@ function makeRequest(url, options = {}) {
 
 // 載入狀態管理
 function showLoading(element) {
-    element.classList.add('loading');
-    element.style.pointerEvents = 'none';
+    if (!element) {
+        console.warn('showLoading: element 參數為空');
+        return;
+    }
+    
+    if (element.classList) {
+        element.classList.add('loading');
+    }
+    
+    if (element.style) {
+        element.style.pointerEvents = 'none';
+    }
 }
 
 function hideLoading(element) {
-    element.classList.remove('loading');
-    element.style.pointerEvents = 'auto';
+    if (!element) {
+        console.warn('hideLoading: element 參數為空');
+        return;
+    }
+    
+    if (element.classList) {
+        element.classList.remove('loading');
+    }
+    
+    if (element.style) {
+        element.style.pointerEvents = 'auto';
+    }
 }
 
 // 表單重置
