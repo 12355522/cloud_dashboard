@@ -534,6 +534,7 @@ class MQTTClient {
             if (existingSensor) {
                 console.log(`📡 感測器 ${SN} 已存在，更新配置`);
                 existingSensor.name = sensorName || `感測器_${SN}`;
+                existingSensor.description = description; // 更新描述欄位
                 existingSensor.lastUpdate = new Date();
                 existingSensor.status = 'online';
                 return;
@@ -543,6 +544,7 @@ class MQTTClient {
             const newSensor = {
                 id: SN,
                 name: sensorName || `感測器_${SN}`,
+                description: description, // 將描述作為主要識別名稱
                 type: this.determineSensorType(value),
                 x: (ADDRESS * 10) % 100, // 根據地址分配位置
                 y: Math.floor(ADDRESS * 8) % 100,
@@ -671,6 +673,7 @@ class MQTTClient {
             if (existingSensor) {
                 console.log(`📡 感測器 ${serial_number} 已存在，更新配置`);
                 existingSensor.name = name || `感測器_${serial_number}`;
+                existingSensor.description = description; // 更新描述欄位
                 existingSensor.status = status === 'active' ? 'online' : 'offline';
                 existingSensor.lastUpdate = new Date();
                 existingSensor.lastValue = {
@@ -687,6 +690,7 @@ class MQTTClient {
             const newSensor = {
                 id: serial_number,
                 name: name || `感測器_${serial_number}`,
+                description: description, // 將描述作為主要識別名稱
                 type: this.determineSensorTypeFromName(name, description),
                 x: (address * 10) % 100, // 根據地址分配位置
                 y: Math.floor(address * 8) % 100,

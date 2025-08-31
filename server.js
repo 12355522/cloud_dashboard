@@ -482,6 +482,7 @@ app.get('/api/farms/:id/sensors', async (req, res) => {
         const sensorsData = farm.sensors.map(sensor => ({
             id: sensor.id,
             name: sensor.name,
+            description: sensor.description, // 加入描述欄位作為主要識別名稱
             type: sensor.type,
             deviceName: sensor.deviceName,
             status: sensor.status,
@@ -510,6 +511,7 @@ app.get('/api/dashboard/carousel-data', async (req, res) => {
             sensors: farm.sensors.map(sensor => ({
                 id: sensor.id,
                 name: sensor.name,
+                description: sensor.description, // 加入描述欄位作為主要識別名稱
                 lastValue: sensor.lastValue
             }))
         }));

@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 // 感測器資料結構
 const sensorSchema = new mongoose.Schema({
     id: { type: String, required: true },
-    name: { type: String, required: true },
+    name: { type: String, required: true }, // 感測器類型名稱
+    description: { type: String, required: true }, // 感測器描述作為主要識別名稱
     type: { type: String, required: true },
     x: { type: Number, required: true, min: 0, max: 100 },
     y: { type: Number, required: true, min: 0, max: 100 },

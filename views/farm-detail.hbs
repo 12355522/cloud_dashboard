@@ -504,7 +504,9 @@ document.addEventListener('DOMContentLoaded', function() {
             marker.dataset.type = 'sensor';
             marker.dataset.id = sensor.id;
             marker.dataset.sensorType = sensor.type;
-            marker.title = sensor.name;
+            // 優先使用 description 作為感測器識別名稱，如果沒有則使用 name
+            const displayName = sensor.description || sensor.name;
+            marker.title = displayName;
             
             // 取得感測器圖示
             const icon = getSensorIcon(sensor.type);
@@ -515,7 +517,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 '<div class="sensor-icon">' +
                     '<i class="' + icon + ' ' + statusClass + '"></i>' +
                 '</div>' +
-                '<div class="sensor-name">' + sensor.name + '</div>';
+                '<div class="sensor-name">' + displayName + '</div>';
             
             // 顯示最新數值
             if (sensor.lastValue && sensor.lastValue.currentValues) {
