@@ -297,7 +297,10 @@ async function discoverCameras() {
         const result = await response.json();
         
         if (result.success) {
-            document.getElementById('discoveredCount').textContent = result.cameras.length;
+            const discoveredCountElement = document.getElementById('discoveredCount');
+            if (discoveredCountElement) {
+                discoveredCountElement.textContent = result.cameras.length;
+            }
             showToast('success', `發現 ${result.cameras.length} 台攝影機`);
             
             // 重新載入頁面以顯示發現的攝影機
@@ -316,7 +319,10 @@ async function discoverCameras() {
 }
 
 // 新增攝影機
-document.getElementById('addCameraForm').addEventListener('submit', async (e) => {
+document.addEventListener('DOMContentLoaded', function() {
+    const addCameraForm = document.getElementById('addCameraForm');
+    if (addCameraForm) {
+        addCameraForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const formData = {
@@ -341,8 +347,19 @@ document.getElementById('addCameraForm').addEventListener('submit', async (e) =>
         
         if (result.success) {
             showToast('success', '攝影機連接成功');
-            bootstrap.Modal.getInstance(document.getElementById('addCameraModal')).hide();
-            document.getElementById('addCameraForm').reset();
+            
+            const addCameraModal = document.getElementById('addCameraModal');
+            if (addCameraModal) {
+                const modalInstance = bootstrap.Modal.getInstance(addCameraModal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            }
+            
+            const addCameraForm = document.getElementById('addCameraForm');
+            if (addCameraForm) {
+                addCameraForm.reset();
+            }
             
             // 重新載入頁面
             setTimeout(() => {
@@ -356,6 +373,8 @@ document.getElementById('addCameraForm').addEventListener('submit', async (e) =>
         showToast('error', '連接攝影機失敗');
     } finally {
         hideLoading();
+    }
+        });
     }
 });
 
@@ -375,9 +394,11 @@ async function captureSnapshot(ip) {
             
             // 更新快照預覽
             const cameraCard = document.querySelector(`[data-camera-ip="${ip}"]`);
-            const snapshotPreview = cameraCard.querySelector('.snapshot-preview');
-            if (snapshotPreview) {
-                snapshotPreview.src = result.snapshot.path + '?t=' + Date.now();
+            if (cameraCard) {
+                const snapshotPreview = cameraCard.querySelector('.snapshot-preview');
+                if (snapshotPreview) {
+                    snapshotPreview.src = result.snapshot.path + '?t=' + Date.now();
+                }
             }
             
             // 更新快照數量
@@ -409,13 +430,19 @@ async function startStream(ip) {
             
             // 更新按鈕狀態
             const cameraCard = document.querySelector(`[data-camera-ip="${ip}"]`);
-            const streamBtn = cameraCard.querySelector('button[onclick*="startStream"]');
-            streamBtn.innerHTML = '<i class="fas fa-stop"></i>';
-            streamBtn.setAttribute('onclick', `stopStream('${ip}')`);
-            
-            // 啟用檢視按鈕
-            const viewBtn = cameraCard.querySelector('button[onclick*="viewStream"]');
-            viewBtn.disabled = false;
+            if (cameraCard) {
+                const streamBtn = cameraCard.querySelector('button[onclick*="startStream"]');
+                if (streamBtn) {
+                    streamBtn.innerHTML = '<i class="fas fa-stop"></i>';
+                    streamBtn.setAttribute('onclick', `stopStream('${ip}')`);
+                }
+                
+                // 啟用檢視按鈕
+                const viewBtn = cameraCard.querySelector('button[onclick*="viewStream"]');
+                if (viewBtn) {
+                    viewBtn.disabled = false;
+                }
+            }
             
             updateStreamingCount();
         } else {
@@ -443,13 +470,19 @@ async function stopStream(ip) {
             
             // 更新按鈕狀態
             const cameraCard = document.querySelector(`[data-camera-ip="${ip}"]`);
-            const streamBtn = cameraCard.querySelector('button[onclick*="stopStream"]');
-            streamBtn.innerHTML = '<i class="fas fa-play"></i>';
-            streamBtn.setAttribute('onclick', `startStream('${ip}')`);
-            
-            // 禁用檢視按鈕
-            const viewBtn = cameraCard.querySelector('button[onclick*="viewStream"]');
-            viewBtn.disabled = true;
+            if (cameraCard) {
+                const streamBtn = cameraCard.querySelector('button[onclick*="stopStream"]');
+                if (streamBtn) {
+                    streamBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    streamBtn.setAttribute('onclick', `startStream('${ip}')`);
+                }
+                
+                // 禁用檢視按鈕
+                const viewBtn = cameraCard.querySelector('button[onclick*="viewStream"]');
+                if (viewBtn) {
+                    viewBtn.disabled = true;
+                }
+            }
             
             updateStreamingCount();
         } else {
@@ -466,23 +499,32 @@ function viewStream(ip) {
     currentStreamIp = ip;
     const streamUrl = `/streams/${ip}/playlist.m3u8`;
     const video = document.getElementById('streamVideo');
+    const streamInfo = document.getElementById('streamInfo');
+    const streamModal = document.getElementById('streamModal');
     
-    if (Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(streamUrl);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, function() {
-            video.play();
-        });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = streamUrl;
-        video.addEventListener('loadedmetadata', function() {
-            video.play();
-        });
+    if (video) {
+        if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(streamUrl);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.play().catch(e => console.warn('自動播放失敗:', e));
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = streamUrl;
+            video.addEventListener('loadedmetadata', function() {
+                video.play().catch(e => console.warn('自動播放失敗:', e));
+            });
+        }
     }
     
-    document.getElementById('streamInfo').textContent = `串流來源: ${ip}`;
-    new bootstrap.Modal(document.getElementById('streamModal')).show();
+    if (streamInfo) {
+        streamInfo.textContent = `串流來源: ${ip}`;
+    }
+    
+    if (streamModal) {
+        new bootstrap.Modal(streamModal).show();
+    }
 }
 
 // 斷開攝影機
@@ -517,9 +559,21 @@ async function disconnectCamera(ip) {
 
 // 顯示完整快照
 function showFullSnapshot(imagePath) {
-    document.getElementById('fullSnapshot').src = imagePath;
-    document.getElementById('downloadSnapshot').href = imagePath;
-    new bootstrap.Modal(document.getElementById('snapshotModal')).show();
+    const fullSnapshot = document.getElementById('fullSnapshot');
+    const downloadSnapshot = document.getElementById('downloadSnapshot');
+    const snapshotModal = document.getElementById('snapshotModal');
+    
+    if (fullSnapshot) {
+        fullSnapshot.src = imagePath;
+    }
+    
+    if (downloadSnapshot) {
+        downloadSnapshot.href = imagePath;
+    }
+    
+    if (snapshotModal) {
+        new bootstrap.Modal(snapshotModal).show();
+    }
 }
 
 // 加入輪播
@@ -542,7 +596,13 @@ async function addToCarousel() {
         
         if (result.success) {
             showToast('success', '已加入輪播列表');
-            bootstrap.Modal.getInstance(document.getElementById('streamModal')).hide();
+            const streamModal = document.getElementById('streamModal');
+            if (streamModal) {
+                const modalInstance = bootstrap.Modal.getInstance(streamModal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            }
         } else {
             showToast('error', result.error || '加入失敗');
         }
@@ -554,12 +614,28 @@ async function addToCarousel() {
 
 // 工具函數
 function showLoading(text) {
-    document.getElementById('loadingText').textContent = text;
-    document.getElementById('loadingOverlay').classList.remove('d-none');
+    const loadingText = document.getElementById('loadingText');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    if (loadingText) {
+        loadingText.textContent = text;
+    }
+    
+    if (loadingOverlay) {
+        loadingOverlay.classList.remove('d-none');
+    } else {
+        console.warn('載入指示器元素未找到');
+    }
 }
 
 function hideLoading() {
-    document.getElementById('loadingOverlay').classList.add('d-none');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('d-none');
+    } else {
+        console.warn('載入指示器元素未找到');
+    }
 }
 
 function showToast(type, message) {
@@ -588,18 +664,27 @@ function updateCounts() {
 }
 
 function updateConnectedCount() {
-    const count = document.querySelectorAll('[data-camera-ip]').length;
-    document.getElementById('connectedCount').textContent = count;
+    const element = document.getElementById('connectedCount');
+    if (element) {
+        const count = document.querySelectorAll('[data-camera-ip]').length;
+        element.textContent = count;
+    }
 }
 
 function updateStreamingCount() {
-    const count = document.querySelectorAll('button[onclick*="stopStream"]').length;
-    document.getElementById('streamingCount').textContent = count;
+    const element = document.getElementById('streamingCount');
+    if (element) {
+        const count = document.querySelectorAll('button[onclick*="stopStream"]').length;
+        element.textContent = count;
+    }
 }
 
 function updateSnapshotCount() {
-    const count = document.querySelectorAll('.snapshot-preview').length;
-    document.getElementById('snapshotCount').textContent = count;
+    const element = document.getElementById('snapshotCount');
+    if (element) {
+        const count = document.querySelectorAll('.snapshot-preview').length;
+        element.textContent = count;
+    }
 }
 
 // 定期更新狀態
@@ -609,9 +694,19 @@ setInterval(async () => {
         const status = await response.json();
         
         if (status.success) {
-            document.getElementById('connectedCount').textContent = status.connectedCount;
-            document.getElementById('streamingCount').textContent = status.streamingCount;
-            document.getElementById('snapshotCount').textContent = status.snapshotCount;
+            const connectedCountElement = document.getElementById('connectedCount');
+            const streamingCountElement = document.getElementById('streamingCount');
+            const snapshotCountElement = document.getElementById('snapshotCount');
+            
+            if (connectedCountElement) {
+                connectedCountElement.textContent = status.connectedCount;
+            }
+            if (streamingCountElement) {
+                streamingCountElement.textContent = status.streamingCount;
+            }
+            if (snapshotCountElement) {
+                snapshotCountElement.textContent = status.snapshotCount;
+            }
         }
     } catch (error) {
         console.warn('更新狀態失敗:', error);
