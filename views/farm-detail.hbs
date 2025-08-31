@@ -102,18 +102,7 @@
                             <div class="grid-overlay" id="grid-overlay"></div>
                         </div>
                         
-                        <!-- 縮放控制 -->
-                        <div class="zoom-controls">
-                            <button class="btn btn-sm btn-outline-light" id="zoom-in-btn" title="放大">
-                                <i class="fas fa-search-plus"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-light" id="zoom-out-btn" title="縮小">
-                                <i class="fas fa-search-minus"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-light" id="zoom-reset-btn" title="重設">
-                                <i class="fas fa-expand-arrows-alt"></i>
-                            </button>
-                        </div>
+
                     </div>
                 </div>
                 
@@ -263,6 +252,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const addDeviceBtn = document.getElementById('add-device-btn');
     const saveLayoutBtn = document.getElementById('save-layout-btn');
     const layoutImage = document.getElementById('layout-image');
+
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .dragging {
+            cursor: grabbing !important;
+            z-index: 1000;
+            pointer-events: none;
+        }
+    `;
+    document.head.appendChild(style);
     
     if (editModeBtn) {
         editModeBtn.addEventListener('click', toggleEditMode);
@@ -291,10 +290,10 @@ document.addEventListener('DOMContentLoaded', function() {
             addSensorBtn.disabled = false;
             addDeviceBtn.disabled = false;
             saveLayoutBtn.style.display = 'inline-block';
-            layoutImage.style.cursor = 'crosshair';
-            if (gridOverlay) gridOverlay.classList.add('show');
+            if(layoutImage) layoutImage.style.cursor = 'crosshair';
+            if (gridOverlay) gridOverlay.classList.remove('show');
             if (layoutInfo) {
-                layoutInfo.innerHTML = '<i class="fas fa-edit me-1"></i>編輯模式：拖動設備調整位置，按住 Shift 鍵網格對齊';
+                layoutInfo.innerHTML = '<i class="fas fa-edit me-1"></i>編輯模式：拖動設備調整位置';
                 layoutInfo.style.background = 'rgba(40, 167, 69, 0.1)';
                 layoutInfo.style.borderColor = 'rgba(40, 167, 69, 0.2)';
             }
@@ -305,8 +304,8 @@ document.addEventListener('DOMContentLoaded', function() {
             addSensorBtn.disabled = true;
             addDeviceBtn.disabled = true;
             saveLayoutBtn.style.display = 'none';
-            layoutImage.style.cursor = 'default';
-            if (gridOverlay) gridOverlay.classList.remove('show');
+            if(layoutImage) layoutImage.style.cursor = 'default';
+            if (gridOverlay) gridOverlay.classList.add('show');
             if (layoutInfo) {
                 layoutInfo.innerHTML = '<i class="fas fa-info-circle me-1"></i>點擊編輯模式開始配置設備位置';
                 layoutInfo.style.background = 'rgba(13, 110, 253, 0.1)';
@@ -331,138 +330,97 @@ document.addEventListener('DOMContentLoaded', function() {
             removeMouseDrag(marker);
         });
     }
-    
-    let isDragging = false;
+
+    // --- FINAL DRAG LOGIC (Directly manipulating left/top for debugging) ---
+    // This version removes `transform` entirely to test if it's the cause of CSS conflicts or perceived lag.
     let draggedElement = null;
-    let dragOffset = { x: 0, y: 0 };
-    
+    let dragContext = null; 
+
     function setupMouseDrag(element) {
-        element.addEventListener('mousedown', handleMouseDown);
+        element.addEventListener('mousedown', onDragStart, { passive: false });
     }
-    
+
     function removeMouseDrag(element) {
-        element.removeEventListener('mousedown', handleMouseDown);
+        element.removeEventListener('mousedown', onDragStart);
     }
-    
-    function handleMouseDown(e) {
-        if (!editMode) return;
-        
+
+    function onDragStart(e) {
+        if (!editMode || e.button !== 0 || !layoutImage) return;
+
         e.preventDefault();
-        e.stopPropagation();
         
         draggedElement = e.currentTarget;
-        isDragging = true;
+        const imageRect = layoutImage.getBoundingClientRect();
         
-        // 計算滑鼠相對於元素的偏移
-        const elementRect = draggedElement.getBoundingClientRect();
-        const imageContainer = document.querySelector('.layout-image-container');
-        const imageRect = imageContainer.getBoundingClientRect();
-        
-        dragOffset.x = e.clientX - elementRect.left - elementRect.width / 2;
-        dragOffset.y = e.clientY - elementRect.top - elementRect.height / 2;
-        
-        // 添加全域監聽器
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        
-        // 視覺效果
+        dragContext = {
+            imageRect: imageRect,
+            initialMouseX: e.clientX,
+            initialMouseY: e.clientY,
+            initialLeftPercent: parseFloat(draggedElement.style.left),
+            initialTopPercent: parseFloat(draggedElement.style.top)
+        };
+
+        document.addEventListener('mousemove', onDragMove, { passive: false });
+        document.addEventListener('mouseup', onDragEnd, { once: true });
+
         draggedElement.classList.add('dragging');
-        const container = document.querySelector('.layout-container-enhanced');
-        if (container) container.classList.add('edit-mode');
-        
-        console.log('🎯 開始拖拽:', draggedElement.dataset.id);
     }
-    
-    function handleMouseMove(e) {
-        if (!isDragging || !draggedElement) return;
-        
+
+    function onDragMove(e) {
         e.preventDefault();
+        if (!draggedElement || !dragContext) return;
+
+        const imageRect = dragContext.imageRect;
+        const deltaX = e.clientX - dragContext.initialMouseX;
+        const deltaY = e.clientY - dragContext.initialMouseY;
+
+        const deltaXPercent = (deltaX / imageRect.width) * 100;
+        const deltaYPercent = (deltaY / imageRect.height) * 100;
+
+        let newXPercent = dragContext.initialLeftPercent + deltaXPercent;
+        let newYPercent = dragContext.initialTopPercent + deltaYPercent;
+
+        // Clamp values to stay within the image boundaries
+        newXPercent = Math.max(0, Math.min(100, newXPercent));
+        newYPercent = Math.max(0, Math.min(100, newYPercent));
         
-        const imageContainer = document.querySelector('.layout-image-container');
-        const image = document.getElementById('layout-image');
-        
-        if (!imageContainer || !image) return;
-        
-        const containerRect = imageContainer.getBoundingClientRect();
-        const imageRect = image.getBoundingClientRect();
-        
-        // 計算滑鼠在圖片內的相對位置（考慮縮放）
-        const mouseX = e.clientX - dragOffset.x;
-        const mouseY = e.clientY - dragOffset.y;
-        
-        // 轉換為相對於實際圖片的座標
-        const relativeX = mouseX - imageRect.left;
-        const relativeY = mouseY - imageRect.top;
-        
-        // 轉換為百分比（相對於圖片尺寸）
-        let percentX = Math.max(0, Math.min(100, (relativeX / imageRect.width) * 100));
-        let percentY = Math.max(0, Math.min(100, (relativeY / imageRect.height) * 100));
-        
-        // 網格對齊功能（可選）
-        const gridSnap = e.shiftKey; // 按住 Shift 鍵啟用網格對齊
-        const gridOverlay = document.getElementById('grid-overlay');
-        if (gridSnap) {
-            const gridSize = 5; // 5% 網格
-            percentX = Math.round(percentX / gridSize) * gridSize;
-            percentY = Math.round(percentY / gridSize) * gridSize;
-            if (gridOverlay) gridOverlay.classList.add('snap-mode');
-        } else {
-            if (gridOverlay) gridOverlay.classList.remove('snap-mode');
-        }
-        
-        // 立即更新視覺位置
-        draggedElement.style.left = percentX + '%';
-        draggedElement.style.top = percentY + '%';
-        
-        console.log('📍 拖拽位置:', { x: percentX.toFixed(1), y: percentY.toFixed(1) });
+        // Directly update left and top properties
+        draggedElement.style.left = newXPercent + '%';
+        draggedElement.style.top = newYPercent + '%';
     }
-    
-    function handleMouseUp(e) {
-        if (!isDragging || !draggedElement) return;
+
+    function onDragEnd(e) {
+        if (!dragContext) {
+            draggedElement = null;
+            return;
+        };
+        document.removeEventListener('mousemove', onDragMove);
         
-        e.preventDefault();
-        
-        // 移除全域監聽器
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        
-        // 恢復視覺效果
+        if (!draggedElement) return;
+
+        // The element is already at its final position from the last onDragMove event
+        const finalXPercent = parseFloat(draggedElement.style.left);
+        const finalYPercent = parseFloat(draggedElement.style.top);
+
         draggedElement.classList.remove('dragging');
-        const container = document.querySelector('.layout-container-enhanced');
-        if (container) container.classList.remove('edit-mode');
-        const gridOverlay = document.getElementById('grid-overlay');
-        if (gridOverlay) gridOverlay.classList.remove('snap-mode');
+
+        console.log('✅ 拖拽完成:', { id: draggedElement.dataset.id, x: finalXPercent, y: finalYPercent });
         
-        // 獲取最終位置
-        const finalX = parseFloat(draggedElement.style.left);
-        const finalY = parseFloat(draggedElement.style.top);
-        
-        console.log('✅ 拖拽完成:', { id: draggedElement.dataset.id, x: finalX, y: finalY });
-        
-        // 更新資料
         const type = draggedElement.dataset.type;
         const id = draggedElement.dataset.id;
         
-        if (type === 'sensor') {
-            const sensor = sensors.find(s => s.id === id);
-            if (sensor) {
-                sensor.x = finalX;
-                sensor.y = finalY;
-                console.log('📊 已更新感測器位置:', sensor);
-            }
-        } else if (type === 'device') {
-            const device = devices.find(d => d.id === id);
-            if (device) {
-                device.x = finalX;
-                device.y = finalY;
-                console.log('📊 已更新設備位置:', device);
-            }
+        const collection = type === 'sensor' ? sensors : devices;
+        const item = collection.find(i => i.id === id);
+        if (item) {
+            item.x = finalXPercent;
+            item.y = finalYPercent;
+            console.log(`📊 已更新${type}位置:`, item);
         }
         
-        // 重置狀態
-        isDragging = false;
         draggedElement = null;
+        dragContext = null;
     }
+    // --- END OF FINAL DRAG LOGIC ---
     
     function addItem(type) {
         const name = prompt(`請輸入${type === 'sensor' ? '感測器' : '設備'}名稱:`);
@@ -490,7 +448,6 @@ document.addEventListener('DOMContentLoaded', function() {
             devices.push(item);
         }
         
-        // 重新渲染
         renderItems();
     }
     
@@ -498,6 +455,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const sensorsContainer = document.getElementById('sensors-container');
         const devicesContainer = document.getElementById('devices-container');
         
+        if (!sensorsContainer || !devicesContainer) return;
+
         sensorsContainer.innerHTML = '';
         devicesContainer.innerHTML = '';
         
@@ -510,22 +469,18 @@ document.addEventListener('DOMContentLoaded', function() {
             marker.dataset.type = 'sensor';
             marker.dataset.id = sensor.id;
             marker.dataset.sensorType = sensor.type;
-            // 優先使用 description 作為感測器識別名稱，如果沒有則使用 name
             const displayName = sensor.description || sensor.name;
             marker.title = displayName;
             
-            // 取得感測器圖示
             const icon = getSensorIcon(sensor.type);
             const statusClass = sensor.status === 'online' ? 'text-success' : 'text-secondary';
             
-            // 建立感測器標記 HTML
             let markerHTML = '<div class="sensor-display">' +
                 '<div class="sensor-icon">' +
                     '<i class="' + icon + ' ' + statusClass + '"></i>' +
                 '</div>' +
                 '<div class="sensor-name">' + displayName + '</div>';
             
-            // 顯示最新數值
             if (sensor.lastValue && sensor.lastValue.currentValues) {
                 markerHTML += '<div class="sensor-values">';
                 sensor.lastValue.currentValues.forEach(value => {
@@ -599,7 +554,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 取得感測器圖示
     function getSensorIcon(sensorType) {
         const iconMap = {
             'temperature': 'fas fa-thermometer-half',
@@ -614,7 +568,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return iconMap[sensorType] || iconMap['sensor'];
     }
     
-    // 定期更新感測器數值
     function startSensorDataRefresh() {
         setInterval(async () => {
             try {
@@ -626,10 +579,9 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.error('更新感測器資料失敗:', error);
             }
-        }, 10000); // 每10秒更新一次
+        }, 10000);
     }
     
-    // 更新感測器資料
     function updateSensorData(sensorData) {
         sensorData.forEach(updatedSensor => {
             const existingSensor = sensors.find(s => s.deviceName === updatedSensor.deviceName);
@@ -641,209 +593,99 @@ document.addEventListener('DOMContentLoaded', function() {
         renderItems();
     }
     
-    // 縮放功能
-    let currentZoom = 1;
-    const maxZoom = 3;
-    const minZoom = 0.5;
-    const zoomStep = 0.2;
-    
-    function initializeZoomControls() {
-        const zoomInBtn = document.getElementById('zoom-in-btn');
-        const zoomOutBtn = document.getElementById('zoom-out-btn');
-        const zoomResetBtn = document.getElementById('zoom-reset-btn');
-        const layoutImage = document.getElementById('layout-image');
-        
-        if (zoomInBtn && zoomOutBtn && zoomResetBtn && layoutImage) {
-            zoomInBtn.addEventListener('click', () => {
-                currentZoom = Math.min(currentZoom + zoomStep, maxZoom);
-                applyZoom();
-            });
-            
-            zoomOutBtn.addEventListener('click', () => {
-                currentZoom = Math.max(currentZoom - zoomStep, minZoom);
-                applyZoom();
-            });
-            
-            zoomResetBtn.addEventListener('click', () => {
-                currentZoom = 1;
-                applyZoom();
-            });
-            
-            // 滑鼠滾輪縮放
-            layoutImage.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                const delta = e.deltaY > 0 ? -zoomStep : zoomStep;
-                currentZoom = Math.min(Math.max(currentZoom + delta, minZoom), maxZoom);
-                applyZoom();
-            });
-        }
-    }
-    
-    function applyZoom() {
-        const layoutImage = document.getElementById('layout-image');
-        if (layoutImage) {
-            layoutImage.style.transform = `scale(${currentZoom})`;
-            
-            // 更新按鈕狀態
-            const zoomInBtn = document.getElementById('zoom-in-btn');
-            const zoomOutBtn = document.getElementById('zoom-out-btn');
-            
-            if (zoomInBtn) zoomInBtn.disabled = currentZoom >= maxZoom;
-            if (zoomOutBtn) zoomOutBtn.disabled = currentZoom <= minZoom;
-        }
-    }
-    
-    // 啟動頁面時開始定期更新
-    startSensorDataRefresh();
-    
-    // 初始化縮放功能
-    initializeZoomControls();
-    
-    // 圖片上傳處理
     try {
-    console.log('🔧 初始化圖片上傳功能...');
-    const uploadForm = document.getElementById('uploadForm');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const uploadBtnText = document.getElementById('uploadBtnText');
-    const uploadingText = document.getElementById('uploadingText');
-    const layoutImageInput = document.getElementById('layoutImageInput');
-    
-    console.log('🔍 尋找上傳元素:', {
-        uploadForm: !!uploadForm,
-        uploadBtn: !!uploadBtn,
-        uploadBtnText: !!uploadBtnText,
-        uploadingText: !!uploadingText,
-        layoutImageInput: !!layoutImageInput
-    });
-    
-    if (uploadForm && uploadBtn) {
-        console.log('✅ 上傳元素找到，設定事件監聽器');
+        console.log('🔧 初始化圖片上傳功能...');
+        const uploadForm = document.getElementById('uploadForm');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadBtnText = document.getElementById('uploadBtnText');
+        const uploadingText = document.getElementById('uploadingText');
+        const layoutImageInput = document.getElementById('layoutImageInput');
         
-        // 按鈕點擊觸發上傳
-        uploadBtn.addEventListener('click', function(e) {
-            console.log('🖱️ 上傳按鈕被點擊！');
-            e.preventDefault();
-            handleUpload();
-        });
-        
-        // 表單提交也觸發上傳
-        uploadForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            handleUpload();
-        });
-        
-        function handleUpload() {
-            console.log('🖼️ 開始上傳場域圖片');
-            
-            // 檢查檔案
-            const file = layoutImageInput.files[0];
-            if (!file) {
-                alert('請選擇要上傳的圖片檔案');
+        if (uploadForm && uploadBtn) {
+            uploadBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                return false;
-            }
-            
-            // 檢查檔案大小 (5MB = 5 * 1024 * 1024 bytes)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('檔案大小不能超過 5MB');
-                e.preventDefault();
-                return false;
-            }
-            
-            // 檢查檔案類型
-            if (!file.type.startsWith('image/')) {
-                alert('請選擇有效的圖片檔案 (JPG, PNG, GIF)');
-                e.preventDefault();
-                return false;
-            }
-            
-            console.log('✅ 檔案驗證通過，開始上傳:', {
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                action: uploadForm.action
+                handleUpload();
             });
             
-            // 顯示上傳狀態
-            uploadBtn.disabled = true;
-            uploadBtnText.classList.add('d-none');
-            uploadingText.classList.remove('d-none');
+            uploadForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                handleUpload();
+            });
             
-            // 使用 fetch API 進行上傳以獲得更好的錯誤處理
-            
-            const formData = new FormData();
-            formData.append('layout_image', file);
-            
-            console.log('📤 使用 fetch 上傳檔案...');
-            
-            fetch(uploadForm.action, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                console.log('📨 收到回應:', response.status, response.statusText);
-                if (response.ok) {
-                    console.log('✅ 上傳成功，重新載入頁面');
-                    window.location.reload();
-                } else {
-                    return response.text().then(text => {
-                        throw new Error(`HTTP ${response.status}: ${text}`);
-                    });
+            function handleUpload() {
+                const file = layoutImageInput.files[0];
+                if (!file) {
+                    alert('請選擇要上傳的圖片檔案');
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error('❌ 上傳失敗:', error);
-                alert('上傳失敗: ' + error.message);
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('檔案大小不能超過 5MB');
+                    return;
+                }
+                if (!file.type.startsWith('image/')) {
+                    alert('請選擇有效的圖片檔案 (JPG, PNG, GIF)');
+                    return;
+                }
                 
-                // 恢復按鈕狀態
-                uploadBtn.disabled = false;
-                uploadBtnText.classList.remove('d-none');
-                uploadingText.classList.add('d-none');
+                uploadBtn.disabled = true;
+                uploadBtnText.classList.add('d-none');
+                uploadingText.classList.remove('d-none');
+                
+                const formData = new FormData();
+                formData.append('layout_image', file);
+                
+                fetch(uploadForm.action, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        return response.text().then(text => { throw new Error(`HTTP ${response.status}: ${text}`); });
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ 上傳失敗:', error);
+                    alert('上傳失敗: ' + error.message);
+                    uploadBtn.disabled = false;
+                    uploadBtnText.classList.remove('d-none');
+                    uploadingText.classList.add('d-none');
+                });
+            }
+            
+            layoutImageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    const oldPreview = document.getElementById('upload-preview');
+                    if (oldPreview) oldPreview.remove();
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const preview = document.createElement('img');
+                        preview.id = 'upload-preview';
+                        preview.src = e.target.result;
+                        preview.className = 'img-fluid mt-2 border rounded';
+                        preview.style.maxHeight = '200px';
+                        preview.style.maxWidth = '100%';
+                        layoutImageInput.parentNode.insertAdjacentElement('afterend', preview);
+                    };
+                    reader.readAsDataURL(file);
+                }
             });
         }
-        
-        // 檔案選擇預覽
-        layoutImageInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file && file.type.startsWith('image/')) {
-                console.log('📷 選擇了圖片檔案:', file.name);
-                
-                // 移除舊的預覽
-                const oldPreview = document.getElementById('upload-preview');
-                if (oldPreview) {
-                    oldPreview.remove();
-                }
-                
-                // 創建新預覽
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.createElement('img');
-                    preview.id = 'upload-preview';
-                    preview.src = e.target.result;
-                    preview.className = 'img-fluid mt-2 border rounded';
-                    preview.style.maxHeight = '200px';
-                    preview.style.maxWidth = '100%';
-                    
-                    layoutImageInput.parentNode.insertAdjacentElement('afterend', preview);
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    } else {
-        console.log('❌ 找不到上傳表單元素，無法設定上傳功能');
+    } catch (error) {
+        console.error('❌ 初始化上傳功能時發生錯誤:', error);
     }
-} catch (error) {
-    console.error('❌ 初始化上傳功能時發生錯誤:', error);
-}
-
-// 初始化感測器資料顯示和自動更新
-try {
-    console.log('🔧 初始化感測器資料顯示...');
-    renderItems();
-    startSensorDataRefresh();
-    console.log('✅ 感測器資料自動更新已啟動');
-} catch (error) {
-    console.error('❌ 初始化感測器功能時發生錯誤:', error);
-}
+    
+    try {
+        console.log('🔧 初始化感測器資料顯示...');
+        renderItems();
+        startSensorDataRefresh();
+        console.log('✅ 感測器資料自動更新已啟動');
+    } catch (error) {
+        console.error('❌ 初始化感測器功能時發生錯誤:', error);
+    }
 });
 </script>
+
