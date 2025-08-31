@@ -97,30 +97,40 @@ class ONVIFService {
         return new Promise((resolve, reject) => {
             console.log(`🔍 測試攝影機連接: ${ip}:${port}`);
             
-            // 創建一個簡單的連接測試
-            const testCam = new onvif.Cam({
-                hostname: ip,
-                port: port,
-                timeout: 3000
-            }, (err) => {
-                if (err) {
-                    console.log(`❌ 攝影機 ${ip} 連接測試失敗:`, err.message);
-                    resolve({
-                        ip: ip,
-                        port: port,
-                        reachable: false,
-                        error: err.message
-                    });
-                } else {
-                    console.log(`✅ 攝影機 ${ip} 連接測試成功`);
-                    resolve({
-                        ip: ip,
-                        port: port,
-                        reachable: true,
-                        message: '攝影機可達'
-                    });
-                }
-            });
+            try {
+                // 創建一個簡單的連接測試
+                const testCam = new onvif.Cam({
+                    hostname: ip,
+                    port: port,
+                    timeout: 3000
+                }, (err) => {
+                    if (err) {
+                        console.log(`❌ 攝影機 ${ip} 連接測試失敗:`, err.message);
+                        resolve({
+                            ip: ip,
+                            port: port,
+                            reachable: false,
+                            error: err.message
+                        });
+                    } else {
+                        console.log(`✅ 攝影機 ${ip} 連接測試成功`);
+                        resolve({
+                            ip: ip,
+                            port: port,
+                            reachable: true,
+                            message: '攝影機可達'
+                        });
+                    }
+                });
+            } catch (error) {
+                console.log(`❌ 攝影機 ${ip} 連接測試異常:`, error.message);
+                resolve({
+                    ip: ip,
+                    port: port,
+                    reachable: false,
+                    error: error.message
+                });
+            }
         });
     }
 

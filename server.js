@@ -579,7 +579,11 @@ app.post('/api/onvif/test-connection', async (req, res) => {
         
         res.json({
             success: true,
-            result: result
+            reachable: result.reachable,
+            ip: result.ip,
+            port: result.port,
+            message: result.message,
+            error: result.error
         });
     } catch (error) {
         console.error('測試攝影機連接失敗:', error);
