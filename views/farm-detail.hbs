@@ -79,23 +79,14 @@
                         <div class="layout-image-container">
                             <img id="layout-image" src="/uploads/{{farm.layout_image}}" alt="場域佈局圖">
                             
-                            <!-- 感測器和設備標記 -->
+                            <!-- 感測器標記容器（由JavaScript動態生成） -->
                             <div id="sensors-container" class="markers-layer">
-                                {{#each farm.sensors}}
-                                <div class="sensor-marker" style="position: absolute; left: {{this.x}}%; top: {{this.y}}%;" 
-                                     data-type="sensor" data-id="{{this.id}}" title="{{this.name}}">
-                                    <i class="fas fa-thermometer-half text-primary"></i>
-                                </div>
-                                {{/each}}
+                                <!-- 感測器標記將由JavaScript動態生成 -->
                             </div>
                             
+                            <!-- 設備標記容器（由JavaScript動態生成） -->
                             <div id="devices-container" class="markers-layer">
-                                {{#each farm.devices}}
-                                <div class="device-marker" style="position: absolute; left: {{this.x}}%; top: {{this.y}}%;" 
-                                     data-type="device" data-id="{{this.id}}" title="{{this.name}}">
-                                    <i class="fas fa-fan text-warning"></i>
-                                </div>
-                                {{/each}}
+                                <!-- 設備標記將由JavaScript動態生成 -->
                             </div>
                             
                             <!-- 格線背景 -->
@@ -676,97 +667,7 @@ document.addEventListener('DOMContentLoaded', function() {
         renderItems();
     }
     
-    // 更新感測器列表項目
-    function updateSensorListItem(sensor) {
-        const listItem = document.querySelector(`[data-sensor-id="${sensor.id}"]`);
-        if (!listItem) return;
-        
-        const valuesContainer = listItem.querySelector('.sensor-values-container');
-        const alertIndicator = listItem.querySelector('.alert-status-indicator');
-        
-        // 清除舊的警報樣式
-        listItem.classList.remove('alert-warning', 'alert-danger', 'alert-critical');
-        
-        if (sensor.lastValue && sensor.lastValue.currentValues) {
-            // 更新數值顯示
-            const valuesList = valuesContainer.querySelector('.sensor-values-list') || 
-                              valuesContainer.appendChild(document.createElement('div'));
-            valuesList.className = 'sensor-values-list';
-            valuesList.innerHTML = '';
-            
-            let highestAlertLevel = 'normal';
-            
-            // 檢查每個數值並應用警報樣式
-            sensor.lastValue.currentValues.forEach(value => {
-                const valueBadge = document.createElement('div');
-                valueBadge.className = 'sensor-value-badge';
-                valueBadge.setAttribute('data-value', value.value);
-                valueBadge.setAttribute('data-unit', value.unit);
-                
-                // 檢查警報狀態
-                if (window.sensorAlertSystem) {
-                    const alertInfo = window.sensorAlertSystem.checkSensorValue(sensor.id, sensor.type, value.value, value.unit);
-                    if (alertInfo.isAbnormal) {
-                        valueBadge.classList.add(alertInfo.level);
-                        if (alertInfo.level === 'critical') {
-                            highestAlertLevel = 'critical';
-                        } else if (alertInfo.level === 'danger' && highestAlertLevel !== 'critical') {
-                            highestAlertLevel = 'danger';
-                        } else if (alertInfo.level === 'warning' && highestAlertLevel === 'normal') {
-                            highestAlertLevel = 'warning';
-                        }
-                    }
-                }
-                
-                valueBadge.innerHTML = `
-                    <span class="value">${value.value}</span>
-                    <span class="unit">${value.unit}</span>
-                `;
-                valuesList.appendChild(valueBadge);
-            });
-            
-            // 應用列表項目的警報樣式
-            if (highestAlertLevel !== 'normal') {
-                listItem.classList.add(`alert-${highestAlertLevel}`);
-                
-                // 顯示警報指示器
-                alertIndicator.style.display = 'flex';
-                const alertBadge = alertIndicator.querySelector('.alert-level-badge') || 
-                                  alertIndicator.appendChild(document.createElement('div'));
-                alertBadge.className = `alert-level-badge ${highestAlertLevel}`;
-                alertBadge.textContent = highestAlertLevel.toUpperCase();
-                
-                // 播放警報聲（僅限最高等級）
-                if (window.sensorAlertSystem && highestAlertLevel === 'critical') {
-                    window.sensorAlertSystem.playAlertSound(highestAlertLevel);
-                }
-            } else {
-                alertIndicator.style.display = 'none';
-            }
-            
-            // 更新時間戳
-            const timestampElement = valuesContainer.querySelector('.text-muted') || 
-                                   valuesContainer.appendChild(document.createElement('small'));
-            timestampElement.className = 'text-muted d-block mt-1';
-            timestampElement.textContent = `更新時間: ${new Date(sensor.lastValue.timestamp).toLocaleString('zh-TW')}`;
-            
-            // 隱藏離線狀態
-            const offlineStatus = valuesContainer.querySelector('.sensor-offline-status');
-            if (offlineStatus) {
-                offlineStatus.style.display = 'none';
-            }
-            
-        } else {
-            // 顯示離線狀態
-            valuesContainer.innerHTML = `
-                <div class="sensor-offline-status">
-                    <span class="badge bg-secondary">離線</span>
-                    <small class="text-muted ms-2">無最新數據</small>
-                </div>
-            `;
-            alertIndicator.style.display = 'none';
-        }
-    }
+    // (updateSensorListItem 函數已移到全域作用域)
     
     try {
         console.log('🔧 初始化圖片上傳功能...');
@@ -915,6 +816,98 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// 更新感測器列表項目（全域函數）
+function updateSensorListItem(sensor) {
+    const listItem = document.querySelector(`[data-sensor-id="${sensor.id}"]`);
+    if (!listItem) return;
+    
+    const valuesContainer = listItem.querySelector('.sensor-values-container');
+    const alertIndicator = listItem.querySelector('.alert-status-indicator');
+    
+    // 清除舊的警報樣式
+    listItem.classList.remove('alert-warning', 'alert-danger', 'alert-critical');
+    
+    if (sensor.lastValue && sensor.lastValue.currentValues) {
+        // 更新數值顯示
+        const valuesList = valuesContainer.querySelector('.sensor-values-list') || 
+                          valuesContainer.appendChild(document.createElement('div'));
+        valuesList.className = 'sensor-values-list';
+        valuesList.innerHTML = '';
+        
+        let highestAlertLevel = 'normal';
+        
+        // 檢查每個數值並應用警報樣式
+        sensor.lastValue.currentValues.forEach(value => {
+            const valueBadge = document.createElement('div');
+            valueBadge.className = 'sensor-value-badge';
+            valueBadge.setAttribute('data-value', value.value);
+            valueBadge.setAttribute('data-unit', value.unit);
+            
+            // 檢查警報狀態
+            if (window.sensorAlertSystem) {
+                const alertInfo = window.sensorAlertSystem.checkSensorValue(sensor.id, sensor.type, value.value, value.unit);
+                if (alertInfo.isAbnormal) {
+                    valueBadge.classList.add(alertInfo.level);
+                    if (alertInfo.level === 'critical') {
+                        highestAlertLevel = 'critical';
+                    } else if (alertInfo.level === 'danger' && highestAlertLevel !== 'critical') {
+                        highestAlertLevel = 'danger';
+                    } else if (alertInfo.level === 'warning' && highestAlertLevel === 'normal') {
+                        highestAlertLevel = 'warning';
+                    }
+                }
+            }
+            
+            valueBadge.innerHTML = `
+                <span class="value">${value.value}</span>
+                <span class="unit">${value.unit}</span>
+            `;
+            valuesList.appendChild(valueBadge);
+        });
+        
+        // 應用列表項目的警報樣式
+        if (highestAlertLevel !== 'normal') {
+            listItem.classList.add(`alert-${highestAlertLevel}`);
+            
+            // 顯示警報指示器
+            alertIndicator.style.display = 'flex';
+            const alertBadge = alertIndicator.querySelector('.alert-level-badge') || 
+                              alertIndicator.appendChild(document.createElement('div'));
+            alertBadge.className = `alert-level-badge ${highestAlertLevel}`;
+            alertBadge.textContent = highestAlertLevel.toUpperCase();
+            
+            // 播放警報聲（僅限最高等級）
+            if (window.sensorAlertSystem && highestAlertLevel === 'critical') {
+                window.sensorAlertSystem.playAlertSound(highestAlertLevel);
+            }
+        } else {
+            alertIndicator.style.display = 'none';
+        }
+        
+        // 更新時間戳
+        const timestampElement = valuesContainer.querySelector('.text-muted') || 
+                               valuesContainer.appendChild(document.createElement('small'));
+        timestampElement.className = 'text-muted d-block mt-1';
+        timestampElement.textContent = `更新時間: ${new Date(sensor.lastValue.timestamp).toLocaleString('zh-TW')}`;
+        
+        // 隱藏離線狀態
+        const offlineStatus = valuesContainer.querySelector('.sensor-offline-status');
+        if (offlineStatus) {
+            offlineStatus.style.display = 'none';
+        }
+        
+    } else {
+        // 顯示離線狀態
+        valuesContainer.innerHTML = `
+            <div class="sensor-offline-status">
+                <span class="badge bg-secondary">離線</span>
+                <small class="text-muted ms-2">無最新數據</small>
+            </div>
+        `;
+        alertIndicator.style.display = 'none';
+    }
+}
 
 // 個別感測器配置功能
 function openSensorConfigModal(sensorId, description, name, type) {

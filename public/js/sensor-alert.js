@@ -66,6 +66,56 @@ class SensorAlertSystem {
     }
 
     /**
+     * 轉換舊格式配置為新格式
+     * @param {object} config - 配置對象
+     * @returns {object} 標準化的配置對象
+     */
+    normalizeConfig(config) {
+        // 如果已經是新格式，直接返回
+        if (config.normal && config.warning && config.warning.offset !== undefined) {
+            return config;
+        }
+        
+        // 轉換舊格式為新格式
+        if (config.min !== undefined && config.max !== undefined) {
+            // 舊格式：{ min, max, warning: {min, max}, danger: {min, max}, critical: {min, max} }
+            return {
+                normal: { 
+                    min: config.min, 
+                    max: config.max 
+                },
+                warning: { 
+                    offset: config.warning ? Math.max(
+                        Math.abs(config.warning.min - config.min),
+                        Math.abs(config.warning.max - config.max)
+                    ) : 5 
+                },
+                danger: { 
+                    offset: config.danger ? Math.max(
+                        Math.abs(config.danger.min - config.min),
+                        Math.abs(config.danger.max - config.max)
+                    ) : 10 
+                },
+                critical: { 
+                    offset: config.critical ? Math.max(
+                        Math.abs(config.critical.min - config.min),
+                        Math.abs(config.critical.max - config.max)
+                    ) : 20 
+                }
+            };
+        }
+        
+        // 如果格式不明，返回預設配置
+        console.warn('未知的配置格式，使用預設配置:', config);
+        return {
+            normal: { min: 0, max: 100 },
+            warning: { offset: 5 },
+            danger: { offset: 10 },
+            critical: { offset: 20 }
+        };
+    }
+
+    /**
      * 初始化音頻
      */
     initAudio() {
@@ -112,10 +162,16 @@ class SensorAlertSystem {
             return { isAbnormal: false, level: 'normal', message: '' };
         }
 
+        // 轉換舊格式配置為新格式
+        config = this.normalizeConfig(config);
+        
         const numValue = parseFloat(value);
         if (isNaN(numValue)) {
             return { isAbnormal: false, level: 'normal', message: '' };
         }
+
+        // 更新感測器最後更新時間
+        this.updateSensorLastSeen(sensorId);
 
         let level = 'normal';
         let message = `感測器 ${sensorId} ${valueType}數值正常`;
