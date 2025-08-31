@@ -461,6 +461,33 @@ app.post('/api/test/feeding', async (req, res) => {
     }
 });
 
+// 重新訂閱所有設備的 feeding 主題
+app.post('/api/mqtt/resubscribe-feeding', async (req, res) => {
+    try {
+        console.log('🔄 API 請求：重新訂閱所有 feeding 主題');
+        
+        const result = await mqttClient.resubscribeAllFeedingTopics();
+        
+        res.json({
+            success: true,
+            message: '已重新訂閱所有 feeding 主題',
+            data: {
+                deviceNames: result.deviceNames,
+                newSubscriptions: result.newSubscriptions,
+                totalDevices: result.deviceNames.length
+            }
+        });
+        
+    } catch (error) {
+        console.error('重新訂閱 feeding 主題失敗:', error);
+        res.status(500).json({
+            success: false,
+            message: '重新訂閱失敗',
+            error: error.message
+        });
+    }
+});
+
 // 場域即時資料 API
 app.get('/api/farms/:id/realtime', async (req, res) => {
     try {

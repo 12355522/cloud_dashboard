@@ -173,6 +173,58 @@ class MQTTClient {
         }
     }
 
+    // 手動重新訂閱所有設備的 feeding 主題
+    async resubscribeAllFeedingTopics() {
+        try {
+            console.log('🔄 開始重新訂閱所有設備的 feeding 主題...');
+            
+            // 取得所有場域的設備名稱
+            const farms = await Farm.find({});
+            const deviceNames = new Set();
+
+            farms.forEach(farm => {
+                farm.sensors.forEach(sensor => {
+                    if (sensor.deviceName) {
+                        deviceNames.add(sensor.deviceName);
+                    }
+                });
+                farm.devices.forEach(device => {
+                    if (device.deviceName) {
+                        deviceNames.add(device.deviceName);
+                    }
+                });
+            });
+
+            // 為每個設備訂閱 feeding 主題
+            let subscribeCount = 0;
+            for (const deviceName of deviceNames) {
+                const feedingTopic = `device/${deviceName}/feeding`;
+                
+                if (!this.subscribedTopics.has(feedingTopic)) {
+                    this.client.subscribe(feedingTopic, (err) => {
+                        if (err) {
+                            console.error(`訂閱 feeding 主題 ${feedingTopic} 失敗:`, err);
+                        } else {
+                            this.subscribedTopics.add(feedingTopic);
+                            console.log(`✅ 已訂閱 feeding 主題: ${feedingTopic}`);
+                        }
+                    });
+                    subscribeCount++;
+                } else {
+                    console.log(`⏭️ feeding 主題已存在: ${feedingTopic}`);
+                }
+            }
+
+            console.log(`🎯 完成重新訂閱，新增了 ${subscribeCount} 個 feeding 主題訂閱`);
+            console.log(`📊 總共 ${deviceNames.size} 個設備名稱`);
+            
+            return { deviceNames: Array.from(deviceNames), newSubscriptions: subscribeCount };
+        } catch (error) {
+            console.error('重新訂閱 feeding 主題失敗:', error);
+            throw error;
+        }
+    }
+
     // 處理接收到的訊息
     async handleMessage(topic, message) {
         try {
