@@ -190,24 +190,28 @@ class MQTTClient {
             const hostDeviceNames = new Set(); // R 開頭的主機設備
 
             farms.forEach(farm => {
-                farm.sensors.forEach(sensor => {
-                    if (sensor.deviceName) {
-                        allDeviceNames.add(sensor.deviceName);
-                        // 只有 R 開頭的設備才是主機，需要 feeding
-                        if (sensor.deviceName.startsWith('R')) {
-                            hostDeviceNames.add(sensor.deviceName);
+                if (farm.sensors && Array.isArray(farm.sensors)) {
+                    farm.sensors.forEach(sensor => {
+                        if (sensor.deviceName) {
+                            allDeviceNames.add(sensor.deviceName);
+                            // 只有 R 開頭的設備才是主機，需要 feeding
+                            if (sensor.deviceName.startsWith('R')) {
+                                hostDeviceNames.add(sensor.deviceName);
+                            }
                         }
-                    }
-                });
-                farm.devices.forEach(device => {
-                    if (device.deviceName) {
-                        allDeviceNames.add(device.deviceName);
-                        // 只有 R 開頭的設備才是主機，需要 feeding
-                        if (device.deviceName.startsWith('R')) {
-                            hostDeviceNames.add(device.deviceName);
+                    });
+                }
+                if (farm.devices && Array.isArray(farm.devices)) {
+                    farm.devices.forEach(device => {
+                        if (device.deviceName) {
+                            allDeviceNames.add(device.deviceName);
+                            // 只有 R 開頭的設備才是主機，需要 feeding
+                            if (device.deviceName.startsWith('R')) {
+                                hostDeviceNames.add(device.deviceName);
+                            }
                         }
-                    }
-                });
+                    });
+                }
             });
 
             // 只為主機設備（R開頭）訂閱 feeding 主題
@@ -871,9 +875,38 @@ class MQTTClient {
         try {
             console.log(`🐷 處理飼養天數資訊 - 設備: ${deviceName}`, data);
             
-            const farm = await Farm.findByDeviceName(deviceName);
+            let farm = await Farm.findByDeviceName(deviceName);
+            
+            // 如果找不到場域，且是 R 開頭的主機設備，自動創建場域
+            if (!farm && deviceName.startsWith('R')) {
+                console.log(`🏗️ 為新主機設備 ${deviceName} 自動創建場域`);
+                
+                const defaultFarmName = `場域_${deviceName}`;
+                farm = new Farm({
+                    name: defaultFarmName,
+                    ip: '0.0.0.0', // 預設 IP，稍後可更新
+                    sensors: [],
+                    devices: [{
+                        deviceName: deviceName,
+                        type: 'controller',
+                        name: `主機_${deviceName}`,
+                        status: 'online',
+                        lastUpdate: new Date()
+                    }],
+                    stats: {
+                        feeding_days: 0,
+                        animal_count: 0,
+                        water_consumption: 0,
+                        fan_count: 0
+                    }
+                });
+                
+                await farm.save();
+                console.log(`✅ 已為主機設備 ${deviceName} 創建新場域: ${defaultFarmName}`);
+            }
+            
             if (!farm) {
-                console.warn(`找不到設備 ${deviceName} 對應的場域`);
+                console.warn(`找不到設備 ${deviceName} 對應的場域，且無法自動創建`);
                 return;
             }
 
