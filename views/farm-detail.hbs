@@ -974,10 +974,10 @@ function loadSingleValueConfig(sensorId, sensorType, valueInfo) {
     if (!config) {
         const defaultConfig = window.sensorAlertSystem.getAlertConfig();
         config = defaultConfig[valueType] || {
-            min: 0, max: 100,
-            warning: { min: 0, max: 100 },
-            danger: { min: 0, max: 100 },
-            critical: { min: 0, max: 100 }
+            normal: { min: 0, max: 100 },
+            warning: { offset: 5 },
+            danger: { offset: 10 },
+            critical: { offset: 20 }
         };
     }
     
@@ -986,40 +986,51 @@ function loadSingleValueConfig(sensorId, sensorType, valueInfo) {
     configContainer.innerHTML = `
         <div class="single-value-config" data-value-type="${valueType}">
             <h6>${valueInfo ? `${getValueTypeName(valueType)} (${valueInfo.unit})` : sensorType}</h6>
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label class="form-label">正常範圍</label>
+            
+            <div class="alert alert-info mb-3">
+                <small><i class="fas fa-info-circle me-1"></i>
+                設定正常範圍，然後設定超出正常範圍多少時觸發警報</small>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-12">
+                    <label class="form-label fw-bold">正常範圍</label>
                     <div class="input-group">
-                        <input type="number" class="form-control normal-min" value="${config.min || 0}" step="0.1">
+                        <input type="number" class="form-control normal-min" value="${config.normal?.min || 0}" step="0.1">
                         <span class="input-group-text">至</span>
-                        <input type="number" class="form-control normal-max" value="${config.max || 100}" step="0.1">
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">警告範圍</label>
-                    <div class="input-group">
-                        <input type="number" class="form-control warning-min" value="${config.warning.min || 0}" step="0.1">
-                        <span class="input-group-text">至</span>
-                        <input type="number" class="form-control warning-max" value="${config.warning.max || 100}" step="0.1">
+                        <input type="number" class="form-control normal-max" value="${config.normal?.max || 100}" step="0.1">
+                        <span class="input-group-text">${valueInfo?.unit || ''}</span>
                     </div>
                 </div>
             </div>
+            
             <div class="row mb-3">
-                <div class="col-md-6">
-                    <label class="form-label">危險範圍</label>
+                <div class="col-md-4">
+                    <label class="form-label text-warning">警告偏差</label>
                     <div class="input-group">
-                        <input type="number" class="form-control danger-min" value="${config.danger.min || 0}" step="0.1">
-                        <span class="input-group-text">至</span>
-                        <input type="number" class="form-control danger-max" value="${config.danger.max || 100}" step="0.1">
+                        <span class="input-group-text">±</span>
+                        <input type="number" class="form-control warning-offset" value="${config.warning?.offset || 5}" step="0.1" min="0">
+                        <span class="input-group-text">${valueInfo?.unit || ''}</span>
                     </div>
+                    <small class="text-muted">超出正常範圍此數值時警告</small>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">臨界範圍</label>
+                <div class="col-md-4">
+                    <label class="form-label text-danger">危險偏差</label>
                     <div class="input-group">
-                        <input type="number" class="form-control critical-min" value="${config.critical.min || 0}" step="0.1">
-                        <span class="input-group-text">至</span>
-                        <input type="number" class="form-control critical-max" value="${config.critical.max || 100}" step="0.1">
+                        <span class="input-group-text">±</span>
+                        <input type="number" class="form-control danger-offset" value="${config.danger?.offset || 10}" step="0.1" min="0">
+                        <span class="input-group-text">${valueInfo?.unit || ''}</span>
                     </div>
+                    <small class="text-muted">超出正常範圍此數值時危險</small>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="color: #dc3545;">臨界偏差</label>
+                    <div class="input-group">
+                        <span class="input-group-text">±</span>
+                        <input type="number" class="form-control critical-offset" value="${config.critical?.offset || 20}" step="0.1" min="0">
+                        <span class="input-group-text">${valueInfo?.unit || ''}</span>
+                    </div>
+                    <small class="text-muted">超出正常範圍此數值時臨界</small>
                 </div>
             </div>
         </div>
@@ -1035,10 +1046,10 @@ function createValueTypeConfigSection(sensorId, valueInfo, index) {
     if (!config) {
         const defaultConfig = window.sensorAlertSystem.getAlertConfig();
         config = defaultConfig[type] || {
-            min: 0, max: 100,
-            warning: { min: 0, max: 100 },
-            danger: { min: 0, max: 100 },
-            critical: { min: 0, max: 100 }
+            normal: { min: 0, max: 100 },
+            warning: { offset: 5 },
+            danger: { offset: 10 },
+            critical: { offset: 20 }
         };
     }
     
@@ -1047,44 +1058,53 @@ function createValueTypeConfigSection(sensorId, valueInfo, index) {
         <div class="value-type-config mb-4" data-value-type="${type}">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h6 class="mb-0">${getValueTypeName(type)} (${unit})</h6>
-                <small class="text-muted">目前數值: ${value}</small>
+                <small class="text-muted">目前數值: ${value} ${unit}</small>
+            </div>
+            
+            <div class="alert alert-info mb-3">
+                <small><i class="fas fa-info-circle me-1"></i>
+                設定正常範圍，然後設定超出正常範圍多少時觸發警報</small>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-12">
+                    <label class="form-label fw-bold">正常範圍</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control normal-min" value="${config.normal?.min || 0}" step="0.1">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control normal-max" value="${config.normal?.max || 100}" step="0.1">
+                        <span class="input-group-text">${unit}</span>
+                    </div>
+                </div>
             </div>
             
             <div class="row mb-3">
-                <div class="col-md-6">
-                    <label class="form-label">正常範圍</label>
+                <div class="col-md-4">
+                    <label class="form-label text-warning">警告偏差</label>
                     <div class="input-group">
-                        <input type="number" class="form-control normal-min" value="${config.min || 0}" step="0.1">
-                        <span class="input-group-text">至</span>
-                        <input type="number" class="form-control normal-max" value="${config.max || 100}" step="0.1">
+                        <span class="input-group-text">±</span>
+                        <input type="number" class="form-control warning-offset" value="${config.warning?.offset || 5}" step="0.1" min="0">
+                        <span class="input-group-text">${unit}</span>
                     </div>
+                    <small class="text-muted">超出正常範圍此數值時警告</small>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">警告範圍</label>
+                <div class="col-md-4">
+                    <label class="form-label text-danger">危險偏差</label>
                     <div class="input-group">
-                        <input type="number" class="form-control warning-min" value="${config.warning.min || 0}" step="0.1">
-                        <span class="input-group-text">至</span>
-                        <input type="number" class="form-control warning-max" value="${config.warning.max || 100}" step="0.1">
+                        <span class="input-group-text">±</span>
+                        <input type="number" class="form-control danger-offset" value="${config.danger?.offset || 10}" step="0.1" min="0">
+                        <span class="input-group-text">${unit}</span>
                     </div>
+                    <small class="text-muted">超出正常範圍此數值時危險</small>
                 </div>
-            </div>
-            
-            <div class="row">
-                <div class="col-md-6">
-                    <label class="form-label">危險範圍</label>
+                <div class="col-md-4">
+                    <label class="form-label" style="color: #dc3545;">臨界偏差</label>
                     <div class="input-group">
-                        <input type="number" class="form-control danger-min" value="${config.danger.min || 0}" step="0.1">
-                        <span class="input-group-text">至</span>
-                        <input type="number" class="form-control danger-max" value="${config.danger.max || 100}" step="0.1">
+                        <span class="input-group-text">±</span>
+                        <input type="number" class="form-control critical-offset" value="${config.critical?.offset || 20}" step="0.1" min="0">
+                        <span class="input-group-text">${unit}</span>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">臨界範圍</label>
-                    <div class="input-group">
-                        <input type="number" class="form-control critical-min" value="${config.critical.min || 0}" step="0.1">
-                        <span class="input-group-text">至</span>
-                        <input type="number" class="form-control critical-max" value="${config.critical.max || 100}" step="0.1">
-                    </div>
+                    <small class="text-muted">超出正常範圍此數值時臨界</small>
                 </div>
             </div>
         </div>
@@ -1120,19 +1140,18 @@ function saveSensorConfig() {
         const valueType = section.dataset.valueType;
         
         const config = {
-            min: parseFloat(section.querySelector('.normal-min').value),
-            max: parseFloat(section.querySelector('.normal-max').value),
+            normal: {
+                min: parseFloat(section.querySelector('.normal-min').value),
+                max: parseFloat(section.querySelector('.normal-max').value)
+            },
             warning: {
-                min: parseFloat(section.querySelector('.warning-min').value),
-                max: parseFloat(section.querySelector('.warning-max').value)
+                offset: parseFloat(section.querySelector('.warning-offset').value)
             },
             danger: {
-                min: parseFloat(section.querySelector('.danger-min').value),
-                max: parseFloat(section.querySelector('.danger-max').value)
+                offset: parseFloat(section.querySelector('.danger-offset').value)
             },
             critical: {
-                min: parseFloat(section.querySelector('.critical-min').value),
-                max: parseFloat(section.querySelector('.critical-max').value)
+                offset: parseFloat(section.querySelector('.critical-offset').value)
             }
         };
         
