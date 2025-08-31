@@ -26,7 +26,8 @@ class ONVIFService {
             // 清空之前的發現結果
             const discoveredCameras = new Map();
             
-            onvif.Discovery.on('device', (cam, rinfo, xml) => {
+            // 創建一次性事件監聽器，避免重複綁定
+            const deviceHandler = (cam, rinfo, xml) => {
                 const cameraInfo = {
                     ip: rinfo.address,
                     port: cam.port || 80,
@@ -40,24 +41,86 @@ class ONVIFService {
                     lastUpdate: new Date()
                 };
                 
-                console.log('📹 發現攝影機:', cameraInfo);
+                console.log('📹 發現攝影機:', {
+                    ip: cameraInfo.ip,
+                    port: cameraInfo.port,
+                    hostname: cameraInfo.hostname,
+                    onvifService: cameraInfo.xaddrs?.[0]?.href || 'N/A',
+                    connected: cameraInfo.connected,
+                    discovered: cameraInfo.discovered
+                });
                 discoveredCameras.set(rinfo.address, cameraInfo);
                 
                 // 同時保存到主攝影機列表
                 this.cameras.set(rinfo.address, cameraInfo);
-            });
-
-            onvif.Discovery.on('error', (err, xml) => {
+            };
+            
+            const errorHandler = (err, xml) => {
                 console.error('ONVIF發現錯誤:', err);
-            });
-
+            };
+            
+            // 綁定事件監聽器
+            onvif.Discovery.on('device', deviceHandler);
+            onvif.Discovery.on('error', errorHandler);
+            
+            // 開始探測
+            console.log('🔍 發送ONVIF探測包...');
             onvif.Discovery.probe();
-
+            
+            // 設置超時和清理
             setTimeout(() => {
+                // 移除事件監聽器
+                onvif.Discovery.removeListener('device', deviceHandler);
+                onvif.Discovery.removeListener('error', errorHandler);
+                
                 const cameras = Array.from(discoveredCameras.values());
                 console.log(`✅ 發現 ${cameras.length} 台攝影機`);
+                
+                // 如果沒有發現攝影機，提供一些調試信息
+                if (cameras.length === 0) {
+                    console.log('⚠️ 沒有發現攝影機，可能的原因：');
+                    console.log('   - 網路中沒有ONVIF攝影機');
+                    console.log('   - 攝影機不在同一網段');
+                    console.log('   - 防火牆阻擋UDP 3702端口');
+                    console.log('   - 攝影機的ONVIF發現功能未啟用');
+                }
+                
                 resolve(cameras);
             }, timeout);
+        });
+    }
+
+    /**
+     * 測試特定IP位址的ONVIF連接
+     */
+    async testCameraConnection(ip, port = 80) {
+        return new Promise((resolve, reject) => {
+            console.log(`🔍 測試攝影機連接: ${ip}:${port}`);
+            
+            // 創建一個簡單的連接測試
+            const testCam = new onvif.Cam({
+                hostname: ip,
+                port: port,
+                timeout: 3000
+            }, (err) => {
+                if (err) {
+                    console.log(`❌ 攝影機 ${ip} 連接測試失敗:`, err.message);
+                    resolve({
+                        ip: ip,
+                        port: port,
+                        reachable: false,
+                        error: err.message
+                    });
+                } else {
+                    console.log(`✅ 攝影機 ${ip} 連接測試成功`);
+                    resolve({
+                        ip: ip,
+                        port: port,
+                        reachable: true,
+                        message: '攝影機可達'
+                    });
+                }
+            });
         });
     }
 

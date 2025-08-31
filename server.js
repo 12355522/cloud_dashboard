@@ -562,6 +562,34 @@ app.post('/api/onvif/discover', async (req, res) => {
     }
 });
 
+// 測試特定攝影機連接
+app.post('/api/onvif/test-connection', async (req, res) => {
+    try {
+        const { ip, port = 80 } = req.body;
+        
+        if (!ip) {
+            return res.status(400).json({
+                success: false,
+                error: '請提供攝影機IP位址'
+            });
+        }
+        
+        console.log(`🔍 測試攝影機連接: ${ip}:${port}`);
+        const result = await onvifService.testCameraConnection(ip, port);
+        
+        res.json({
+            success: true,
+            result: result
+        });
+    } catch (error) {
+        console.error('測試攝影機連接失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: '測試攝影機連接失敗: ' + error.message
+        });
+    }
+});
+
 // 連接ONVIF攝影機
 app.post('/api/onvif/connect', async (req, res) => {
     try {
