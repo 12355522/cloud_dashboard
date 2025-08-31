@@ -94,8 +94,8 @@
                                 <div class="card h-100">
                                     <div class="card-header d-flex justify-content-between align-items-center">
                                         <h6 class="mb-0">{{ip}}:{{port}}</h6>
-                                        <span class="badge {{#if connected}}bg-success{{else}}bg-secondary{{/if}}">
-                                            {{#if connected}}線上{{else}}離線{{/if}}
+                                        <span class="badge {{#if connected}}bg-success{{else if discovered}}bg-warning{{else}}bg-secondary{{/if}}">
+                                            {{#if connected}}已連接{{else if discovered}}已發現{{else}}離線{{/if}}
                                         </span>
                                     </div>
                                     <div class="card-body">
@@ -303,10 +303,8 @@ async function discoverCameras() {
             }
             showToast('success', `發現 ${result.cameras.length} 台攝影機`);
             
-            // 重新載入頁面以顯示發現的攝影機
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
+            // 動態更新攝影機列表，而不是重新整理頁面
+            updateCameraList();
         } else {
             showToast('error', result.error || '搜尋失敗');
         }
@@ -361,9 +359,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 addCameraForm.reset();
             }
             
-            // 重新載入頁面
+            // 更新攝影機列表
             setTimeout(() => {
-                location.reload();
+                updateCameraList();
             }, 1000);
         } else {
             showToast('error', result.error || '連接失敗');
@@ -527,6 +525,23 @@ function viewStream(ip) {
     }
 }
 
+// 連接已發現的攝影機
+async function connectDiscoveredCamera(ip) {
+    // 顯示連接表單
+    const addCameraModal = document.getElementById('addCameraModal');
+    if (addCameraModal) {
+        // 預填IP位址
+        const ipInput = document.getElementById('cameraIp');
+        if (ipInput) {
+            ipInput.value = ip;
+        }
+        
+        // 顯示模態框
+        const modal = new bootstrap.Modal(addCameraModal);
+        modal.show();
+    }
+}
+
 // 斷開攝影機
 async function disconnectCamera(ip) {
     if (!confirm('確定要斷開此攝影機嗎？')) return;
@@ -541,13 +556,8 @@ async function disconnectCamera(ip) {
         if (result.success) {
             showToast('success', '攝影機已斷開');
             
-            // 移除攝影機卡片
-            const cameraCard = document.querySelector(`[data-camera-ip="${ip}"]`);
-            if (cameraCard) {
-                cameraCard.remove();
-            }
-            
-            updateCounts();
+            // 更新攝影機列表
+            updateCameraList();
         } else {
             showToast('error', result.error || '斷開失敗');
         }
@@ -661,6 +671,113 @@ function updateCounts() {
     updateConnectedCount();
     updateStreamingCount();
     updateSnapshotCount();
+}
+
+// 動態更新攝影機列表
+async function updateCameraList() {
+    try {
+        const response = await fetch('/api/onvif/status');
+        const status = await response.json();
+        
+        if (status.success) {
+            const cameraList = document.getElementById('cameraList');
+            if (cameraList && status.cameras) {
+                // 清空現有列表
+                cameraList.innerHTML = '';
+                
+                if (status.cameras.length === 0) {
+                    cameraList.innerHTML = '<div class="text-center text-muted py-4">尚未發現任何攝影機</div>';
+                    return;
+                }
+                
+                // 創建攝影機網格
+                const camerasGrid = document.createElement('div');
+                camerasGrid.className = 'row';
+                camerasGrid.id = 'camerasGrid';
+                
+                status.cameras.forEach(camera => {
+                    const cameraCard = createCameraCard(camera);
+                    camerasGrid.appendChild(cameraCard);
+                });
+                
+                cameraList.appendChild(camerasGrid);
+                
+                // 更新計數
+                updateCounts();
+            }
+        }
+    } catch (error) {
+        console.error('更新攝影機列表失敗:', error);
+    }
+}
+
+// 創建攝影機卡片
+function createCameraCard(camera) {
+    const col = document.createElement('div');
+    col.className = 'col-md-6 col-lg-4 mb-4';
+    col.setAttribute('data-camera-ip', camera.ip);
+    
+    const statusBadge = camera.connected ? 'bg-success' : 
+                       camera.discovered ? 'bg-warning' : 'bg-secondary';
+    const statusText = camera.connected ? '已連接' : 
+                      camera.discovered ? '已發現' : '離線';
+    
+    col.innerHTML = `
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">${camera.ip}:${camera.port}</h6>
+                <span class="badge ${statusBadge}">${statusText}</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <small class="text-muted">配置檔</small>
+                        <div>${camera.profiles || 0}</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">串流</small>
+                        <div>${camera.hasStream ? '可用' : '不可用'}</div>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-6">
+                        <small class="text-muted">快照</small>
+                        <div>${camera.hasSnapshot ? '可用' : '不可用'}</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">狀態</small>
+                        <div>${camera.isStreaming ? '串流中' : '靜止'}</div>
+                    </div>
+                </div>
+                ${camera.lastSnapshot ? `
+                <div class="mt-3">
+                    <img src="${camera.lastSnapshot.path}" class="img-fluid snapshot-preview" alt="快照預覽">
+                </div>
+                ` : ''}
+            </div>
+            <div class="card-footer">
+                <div class="btn-group w-100" role="group">
+                    ${!camera.connected ? `
+                    <button class="btn btn-sm btn-primary" onclick="connectDiscoveredCamera('${camera.ip}')">
+                        <i class="fas fa-plug me-1"></i>連接
+                    </button>
+                    ` : `
+                    <button class="btn btn-sm btn-success" onclick="captureSnapshot('${camera.ip}')">
+                        <i class="fas fa-camera me-1"></i>快照
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="viewStream('${camera.ip}')">
+                        <i class="fas fa-play me-1"></i>檢視
+                    </button>
+                    `}
+                    <button class="btn btn-sm btn-danger" onclick="disconnectCamera('${camera.ip}')">
+                        <i class="fas fa-times me-1"></i>斷開
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return col;
 }
 
 function updateConnectedCount() {

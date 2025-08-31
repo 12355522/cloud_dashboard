@@ -23,18 +23,27 @@ class ONVIFService {
         return new Promise((resolve, reject) => {
             console.log('🔍 開始搜尋ONVIF攝影機...');
             
+            // 清空之前的發現結果
+            const discoveredCameras = new Map();
+            
             onvif.Discovery.on('device', (cam, rinfo, xml) => {
                 const cameraInfo = {
-                    address: rinfo.address,
+                    ip: rinfo.address,
                     port: cam.port || 80,
                     hostname: cam.hostname,
                     urn: cam.urn,
                     xaddrs: cam.xaddrs,
                     types: cam.types,
-                    scopes: cam.scopes
+                    scopes: cam.scopes,
+                    connected: false, // 發現但未連接
+                    discovered: true, // 標記為已發現
+                    lastUpdate: new Date()
                 };
                 
                 console.log('📹 發現攝影機:', cameraInfo);
+                discoveredCameras.set(rinfo.address, cameraInfo);
+                
+                // 同時保存到主攝影機列表
                 this.cameras.set(rinfo.address, cameraInfo);
             });
 
@@ -45,9 +54,9 @@ class ONVIFService {
             onvif.Discovery.probe();
 
             setTimeout(() => {
-                const discoveredCameras = Array.from(this.cameras.values());
-                console.log(`✅ 發現 ${discoveredCameras.length} 台攝影機`);
-                resolve(discoveredCameras);
+                const cameras = Array.from(discoveredCameras.values());
+                console.log(`✅ 發現 ${cameras.length} 台攝影機`);
+                resolve(cameras);
             }, timeout);
         });
     }
@@ -338,24 +347,27 @@ class ONVIFService {
     }
 
     /**
-     * 獲取所有已連接的攝影機
+     * 獲取所有攝影機（包括已連接和已發現的）
      */
     getConnectedCameras() {
         const cameras = [];
         for (const [ip, camera] of this.cameras) {
-            if (camera.connected) {
-                cameras.push({
-                    ip: ip,
-                    port: camera.port,
-                    info: camera.info,
-                    profiles: camera.profiles.length,
-                    hasStream: !!camera.streamUri,
-                    hasSnapshot: !!camera.snapshotUri,
-                    isStreaming: this.streams.has(ip),
-                    lastSnapshot: this.snapshots.get(ip),
-                    lastUpdate: camera.lastUpdate
-                });
-            }
+            // 返回所有攝影機，包括已連接和已發現的
+            cameras.push({
+                ip: ip,
+                port: camera.port || 80,
+                info: camera.info || {},
+                profiles: camera.profiles ? camera.profiles.length : 0,
+                hasStream: !!camera.streamUri,
+                hasSnapshot: !!camera.snapshotUri,
+                isStreaming: this.streams.has(ip),
+                lastSnapshot: this.snapshots.get(ip),
+                lastUpdate: camera.lastUpdate,
+                connected: camera.connected || false,
+                discovered: camera.discovered || false,
+                hostname: camera.hostname,
+                urn: camera.urn
+            });
         }
         return cameras;
     }
