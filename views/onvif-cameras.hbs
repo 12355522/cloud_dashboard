@@ -216,6 +216,12 @@
                         <i class="fas fa-info-circle me-1"></i>
                         請確保攝影機支援ONVIF協議並已啟用
                     </div>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="testCameraConnection()">
+                            <i class="fas fa-network-wired me-1"></i>測試網路連接
+                        </button>
+                        <small class="text-muted d-block mt-1">點擊測試攝影機是否可達</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
@@ -321,61 +327,120 @@ async function discoverCameras() {
 
 // 新增攝影機
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM載入完成，開始綁定表單事件');
+    
     const addCameraForm = document.getElementById('addCameraForm');
+    console.log('📋 找到表單元素:', addCameraForm);
+    
     if (addCameraForm) {
+        console.log('✅ 綁定表單提交事件');
         addCameraForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = {
-        ip: document.getElementById('cameraIp').value,
-        port: parseInt(document.getElementById('cameraPort').value) || 80,
-        username: document.getElementById('cameraUsername').value,
-        password: document.getElementById('cameraPassword').value
-    };
-    
-    showOnvifLoading('連接攝影機中...');
-    
-    try {
-        const response = await fetch('/api/onvif/connect', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showToast('success', '攝影機連接成功');
+            console.log('📤 表單提交觸發');
+            e.preventDefault();
             
-            const addCameraModal = document.getElementById('addCameraModal');
-            if (addCameraModal) {
-                const modalInstance = bootstrap.Modal.getInstance(addCameraModal);
-                if (modalInstance) {
-                    modalInstance.hide();
+            const formData = {
+                ip: document.getElementById('cameraIp').value,
+                port: parseInt(document.getElementById('cameraPort').value) || 80,
+                username: document.getElementById('cameraUsername').value,
+                password: document.getElementById('cameraPassword').value
+            };
+            
+            console.log('📝 表單資料:', formData);
+            showOnvifLoading('連接攝影機中...');
+            
+            try {
+                console.log('🌐 發送連接請求到:', '/api/onvif/connect');
+                const response = await fetch('/api/onvif/connect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                console.log('📡 收到回應:', response.status, response.statusText);
+                const result = await response.json();
+                console.log('📋 回應內容:', result);
+                
+                if (result.success) {
+                    showToast('success', '攝影機連接成功');
+                    
+                    const addCameraModal = document.getElementById('addCameraModal');
+                    if (addCameraModal) {
+                        if (typeof bootstrap !== 'undefined') {
+                            const modalInstance = bootstrap.Modal.getInstance(addCameraModal);
+                            if (modalInstance) {
+                                modalInstance.hide();
+                            }
+                        } else {
+                            // 備用方法關閉模態框
+                            addCameraModal.classList.remove('show');
+                            addCameraModal.style.display = 'none';
+                            addCameraModal.setAttribute('aria-hidden', 'true');
+                        }
+                    }
+                    
+                    const addCameraForm = document.getElementById('addCameraForm');
+                    if (addCameraForm) {
+                        addCameraForm.reset();
+                    }
+                    
+                    // 更新攝影機列表
+                    setTimeout(() => {
+                        updateCameraList();
+                    }, 1000);
+                } else {
+                    const errorMessage = result.error || '連接失敗';
+                    console.error('❌ 連接失敗:', errorMessage);
+                    
+                    // 根據錯誤類型提供具體建議
+                    let userMessage = errorMessage;
+                    if (errorMessage.includes('Network timeout')) {
+                        userMessage = '網路超時 - 請檢查攝影機是否在線，或網路連接是否正常';
+                    } else if (errorMessage.includes('ECONNREFUSED')) {
+                        userMessage = '連接被拒絕 - 請檢查攝影機IP和端口是否正確';
+                    } else if (errorMessage.includes('authentication')) {
+                        userMessage = '認證失敗 - 請檢查用戶名和密碼';
+                    }
+                    
+                    showToast('error', userMessage);
+                    
+                    // 顯示詳細錯誤信息
+                    const errorDetails = document.createElement('div');
+                    errorDetails.className = 'alert alert-warning mt-3';
+                    errorDetails.innerHTML = `
+                        <h6>連接失敗詳情:</h6>
+                        <p><strong>錯誤:</strong> ${errorMessage}</p>
+                        <p><strong>攝影機:</strong> ${formData.ip}:${formData.port}</p>
+                        <p><strong>建議:</strong></p>
+                        <ul>
+                            <li>確認攝影機電源和網路連接</li>
+                            <li>檢查攝影機IP位址是否正確</li>
+                            <li>確認攝影機支援ONVIF協議</li>
+                            <li>檢查網路防火牆設定</li>
+                        </ul>
+                    `;
+                    
+                    // 在模態框中顯示錯誤詳情
+                    const modalBody = document.querySelector('#addCameraModal .modal-body');
+                    if (modalBody) {
+                        // 移除之前的錯誤詳情
+                        const existingError = modalBody.querySelector('.alert-warning');
+                        if (existingError) {
+                            existingError.remove();
+                        }
+                        modalBody.appendChild(errorDetails);
+                    }
                 }
+            } catch (error) {
+                console.error('❌ 連接攝影機錯誤:', error);
+                showToast('error', '連接攝影機失敗');
+            } finally {
+                hideOnvifLoading();
             }
-            
-            const addCameraForm = document.getElementById('addCameraForm');
-            if (addCameraForm) {
-                addCameraForm.reset();
-            }
-            
-            // 更新攝影機列表
-            setTimeout(() => {
-                updateCameraList();
-            }, 1000);
-        } else {
-            showToast('error', result.error || '連接失敗');
-        }
-    } catch (error) {
-        console.error('連接攝影機錯誤:', error);
-        showToast('error', '連接攝影機失敗');
-    } finally {
-        hideOnvifLoading();
-    }
         });
+    } else {
+        console.error('❌ 找不到表單元素');
     }
 });
 
@@ -530,18 +595,38 @@ function viewStream(ip) {
 
 // 連接已發現的攝影機
 async function connectDiscoveredCamera(ip) {
+    console.log('🔌 嘗試連接攝影機:', ip);
+    
     // 顯示連接表單
     const addCameraModal = document.getElementById('addCameraModal');
+    console.log('📋 模態框元素:', addCameraModal);
+    
     if (addCameraModal) {
         // 預填IP位址
         const ipInput = document.getElementById('cameraIp');
+        console.log('📝 IP輸入框:', ipInput);
+        
         if (ipInput) {
             ipInput.value = ip;
+            console.log('✅ IP已預填:', ip);
         }
         
-        // 顯示模態框
-        const modal = new bootstrap.Modal(addCameraModal);
-        modal.show();
+        // 檢查Bootstrap是否可用
+        if (typeof bootstrap !== 'undefined') {
+            console.log('✅ Bootstrap可用，創建模態框實例');
+            const modal = new bootstrap.Modal(addCameraModal);
+            modal.show();
+            console.log('✅ 模態框已顯示');
+        } else {
+            console.error('❌ Bootstrap不可用');
+            // 嘗試直接顯示
+            addCameraModal.classList.add('show');
+            addCameraModal.style.display = 'block';
+            addCameraModal.setAttribute('aria-hidden', 'false');
+            console.log('⚠️ 使用備用方法顯示模態框');
+        }
+    } else {
+        console.error('❌ 找不到模態框元素');
     }
 }
 
@@ -622,6 +707,41 @@ async function addToCarousel() {
     } catch (error) {
         console.error('加入輪播錯誤:', error);
         showToast('error', '加入輪播失敗');
+    }
+}
+
+// 測試攝影機網路連接
+async function testCameraConnection() {
+    const ip = document.getElementById('cameraIp').value;
+    const port = document.getElementById('cameraPort').value || 80;
+    
+    if (!ip) {
+        showToast('error', '請先輸入攝影機IP位址');
+        return;
+    }
+    
+    console.log('🔍 測試攝影機網路連接:', ip, port);
+    
+    try {
+        const response = await fetch('/api/onvif/test-connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ip, port })
+        });
+        
+        const result = await response.json();
+        console.log('📡 網路測試結果:', result);
+        
+        if (result.success && result.reachable) {
+            showToast('success', `攝影機 ${ip} 網路連接正常`);
+        } else {
+            showToast('error', `攝影機 ${ip} 網路連接失敗: ${result.error || '未知錯誤'}`);
+        }
+    } catch (error) {
+        console.error('❌ 網路測試失敗:', error);
+        showToast('error', '網路測試失敗');
     }
 }
 
