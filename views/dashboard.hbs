@@ -88,6 +88,12 @@
                         <button type="button" class="btn btn-outline-primary" id="carouselToggle">
                             <i class="fas fa-pause" id="carouselIcon"></i>
                         </button>
+                        <button type="button" class="btn btn-outline-warning" onclick="testDashboardAlerts()" title="測試警報顯示">
+                            <i class="fas fa-bug"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-success" onclick="clearAllDashboardAlerts()" title="清除警報">
+                            <i class="fas fa-eraser"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1034,10 +1040,14 @@ function updateCarouselSensorData(farmsData) {
                                 // 檢查每個數值
                                 sensor.lastValue.currentValues.forEach(value => {
                                     const alertInfo = window.sensorAlertSystem.checkSensorValue(sensor.id, sensor.type, value.value, value.unit);
+                                    console.log(`Dashboard 警報檢查 - 感測器 ${sensor.id}: ${value.value}${value.unit}, 異常: ${alertInfo.isAbnormal}, 等級: ${alertInfo.level}`);
                                     if (alertInfo.isAbnormal) {
+                                        console.log(`Dashboard 套用警報樣式 - 感測器 ${sensor.id}, 等級: ${alertInfo.level}`);
                                         window.sensorAlertSystem.applyAlertStyle(sensorCard, alertInfo);
                                     }
                                 });
+                            } else {
+                                console.warn('Dashboard 警報系統未載入');
                             }
                         }
                         
@@ -1130,4 +1140,61 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// 測試 Dashboard 警報顯示功能
+function testDashboardAlerts() {
+    console.log('🧪 測試 Dashboard 警報顯示...');
+    
+    if (!window.sensorAlertSystem) {
+        alert('警報系統未載入！');
+        return;
+    }
+    
+    // 找到所有感測器卡片
+    const sensorCards = document.querySelectorAll('.sensor-card');
+    
+    if (sensorCards.length === 0) {
+        alert('沒有找到感測器卡片！');
+        return;
+    }
+    
+    // 為每個感測器卡片應用不同等級的警報樣式
+    sensorCards.forEach((card, index) => {
+        const levels = ['warning', 'danger', 'critical'];
+        const level = levels[index % levels.length];
+        
+        // 創建假的警報資訊
+        const alertInfo = {
+            isAbnormal: true,
+            level: level,
+            message: `測試${level}警報`,
+            sensorType: 'test',
+            value: 99
+        };
+        
+        // 清除舊樣式
+        window.sensorAlertSystem.clearAlertStyle(card);
+        
+        // 應用新樣式
+        setTimeout(() => {
+            window.sensorAlertSystem.applyAlertStyle(card, alertInfo);
+            console.log(`已對感測器卡片應用 ${level} 警報樣式`);
+        }, index * 500);
+    });
+    
+    alert(`正在測試 ${sensorCards.length} 個感測器卡片的警報顯示...`);
+}
+
+// 清除所有警報樣式
+function clearAllDashboardAlerts() {
+    const sensorCards = document.querySelectorAll('.sensor-card');
+    
+    sensorCards.forEach(card => {
+        if (window.sensorAlertSystem) {
+            window.sensorAlertSystem.clearAlertStyle(card);
+        }
+    });
+    
+    console.log('已清除所有警報樣式');
+}
 </script>

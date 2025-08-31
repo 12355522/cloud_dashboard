@@ -10,9 +10,7 @@
                 <p class="text-muted mb-0">測試不同等級的感測器警報效果</p>
             </div>
             <div>
-                <a href="/alert-config" class="btn btn-outline-primary me-2">
-                    <i class="fas fa-cog me-1"></i>警報配置
-                </a>
+
                 <a href="/" class="btn btn-secondary">
                     <i class="fas fa-arrow-left me-1"></i>返回儀表板
                 </a>
@@ -30,7 +28,7 @@
             <ul class="mb-0">
                 <li><strong>警告 (Warning)</strong>: 黃色邊框，緩慢脈動，低頻音頻</li>
                 <li><strong>危險 (Danger)</strong>: 紅色邊框，中等脈動，中頻音頻</li>
-                <li><strong>臨界 (Critical)</strong>: 紅色邊框，快速閃爍，高頻音頻，全螢幕覆蓋</li>
+                <li><strong>臨界 (Critical)</strong>: 紅色邊框，快速閃爍，高頻音頻</li>
             </ul>
         </div>
     </div>
@@ -141,6 +139,12 @@
                 </button>
                 <button class="btn btn-danger btn-lg" onclick="testAllCriticals()">
                     <i class="fas fa-radiation me-2"></i>測試所有臨界
+                </button>
+                <button class="btn btn-secondary btn-lg ms-3" onclick="testOfflineAlert()">
+                    <i class="fas fa-wifi-slash me-2"></i>測試離線警報
+                </button>
+                <button class="btn btn-outline-secondary btn-lg ms-2" onclick="clearOfflineAlert()">
+                    <i class="fas fa-wifi me-2"></i>恢復在線
                 </button>
             </div>
         </div>
@@ -351,6 +355,38 @@ function testAllCriticals() {
     testCritical('temp');
     setTimeout(() => testCritical('humidity'), 500);
     setTimeout(() => testCritical('co2'), 1000);
+}
+
+// 測試離線警報
+function testOfflineAlert() {
+    const testSensorId = 'TEST_OFFLINE_01';
+    
+    // 模擬感測器離線
+    window.sensorAlertSystem.triggerOfflineAlert(testSensorId, 45000); // 45秒離線
+    
+    // 添加到日誌
+    addAlertToLog({
+        level: 'critical',
+        message: `感測器 ${testSensorId} 已離線 45秒`,
+        sensorType: 'offline',
+        value: '45秒'
+    });
+}
+
+// 清除離線警報（恢復在線）
+function clearOfflineAlert() {
+    const testSensorId = 'TEST_OFFLINE_01';
+    
+    // 模擬感測器恢復在線
+    window.sensorAlertSystem.clearOfflineAlert(testSensorId);
+    
+    // 添加到日誌
+    addAlertToLog({
+        level: 'info',
+        message: `感測器 ${testSensorId} 恢復在線`,
+        sensorType: 'online',
+        value: '正常'
+    });
 }
 
 // 添加警報到日誌

@@ -12,10 +12,13 @@ class SensorAlertSystem {
         this.alertAudio = null;
         this.isAlertPlaying = false;
         this.alertQueue = [];
-        this.alertConfig = this.loadAlertConfig();
+        this.alertConfig = this.getDefaultAlertConfig();
         this.individualSensorConfigs = this.loadIndividualSensorConfigs();
+        this.sensorLastUpdate = new Map(); // 追蹤感測器最後更新時間
+        this.offlineTimers = new Map(); // 離線檢測計時器
+        this.offlineThreshold = 30000; // 30秒離線閾值
         this.initAudio();
-        this.createAlertOverlay();
+        this.startOfflineMonitoring();
     }
 
     /**
@@ -81,23 +84,7 @@ class SensorAlertSystem {
         }
     }
 
-    /**
-     * 創建警報覆蓋層
-     */
-    createAlertOverlay() {
-        if (document.getElementById('alert-overlay')) return;
 
-        const overlay = document.createElement('div');
-        overlay.id = 'alert-overlay';
-        overlay.className = 'alert-overlay';
-        overlay.innerHTML = `
-            <div class="alert-overlay-content">
-                <div>🚨 感測器異常警報 🚨</div>
-                <div style="font-size: 24px; margin-top: 20px;" id="alert-message"></div>
-            </div>
-        `;
-        document.body.appendChild(overlay);
-    }
 
     /**
      * 檢查感測器數值是否異常
@@ -108,6 +95,9 @@ class SensorAlertSystem {
      * @returns {object} 異常狀態和等級
      */
     checkSensorValue(sensorId, sensorType, value, unit = '') {
+        // 更新感測器最後上線時間
+        this.updateSensorLastSeen(sensorId);
+        
         // 根據單位判斷數值類型
         const valueType = this.getValueTypeByUnit(unit);
         
@@ -243,11 +233,6 @@ class SensorAlertSystem {
         // 播放警報聲
         this.playAlertSound(alertInfo.level);
 
-        // 顯示全螢幕警報（僅限臨界等級）
-        if (alertInfo.level === 'critical') {
-            this.showFullScreenAlert(alertInfo);
-        }
-
         // 記錄警報
         this.logAlert(alertInfo);
     }
@@ -296,24 +281,7 @@ class SensorAlertSystem {
         }
     }
 
-    /**
-     * 顯示全螢幕警報
-     * @param {object} alertInfo - 警報資訊
-     */
-    showFullScreenAlert(alertInfo) {
-        const overlay = document.getElementById('alert-overlay');
-        const messageElement = document.getElementById('alert-message');
-        
-        if (overlay && messageElement) {
-            messageElement.textContent = alertInfo.message;
-            overlay.classList.add('show');
 
-            // 3秒後自動隱藏
-            setTimeout(() => {
-                overlay.classList.remove('show');
-            }, 3000);
-        }
-    }
 
     /**
      * 記錄警報
@@ -379,22 +347,7 @@ class SensorAlertSystem {
         });
     }
 
-    /**
-     * 載入警報配置
-     * @returns {object} 警報配置
-     */
-    loadAlertConfig() {
-        try {
-            const savedConfig = localStorage.getItem('sensorAlertConfig');
-            if (savedConfig) {
-                console.log('📥 從本地儲存載入警報配置');
-                return { ...this.getDefaultAlertConfig(), ...JSON.parse(savedConfig) };
-            }
-        } catch (error) {
-            console.warn('⚠️ 載入警報配置失敗，使用預設配置:', error);
-        }
-        return this.getDefaultAlertConfig();
-    }
+
 
     /**
      * 載入個別感測器配置
@@ -553,20 +506,7 @@ class SensorAlertSystem {
         return null;
     }
 
-    /**
-     * 更新警報配置
-     * @param {object} newConfig - 新的警報配置
-     */
-    updateAlertConfig(newConfig) {
-        this.alertConfig = { ...this.alertConfig, ...newConfig };
-        // 儲存到本地儲存
-        try {
-            localStorage.setItem('sensorAlertConfig', JSON.stringify(this.alertConfig));
-            console.log('🔧 警報配置已更新並儲存:', this.alertConfig);
-        } catch (error) {
-            console.error('❌ 儲存警報配置失敗:', error);
-        }
-    }
+
 
     /**
      * 獲取當前警報配置
@@ -612,6 +552,188 @@ class SensorAlertSystem {
                 value: 2500
             });
         }, 4000);
+    }
+
+    /**
+     * 啟動離線監控系統
+     */
+    startOfflineMonitoring() {
+        setInterval(() => {
+            this.checkAllSensorsOffline();
+        }, 5000); // 每5秒檢查一次
+    }
+
+    /**
+     * 更新感測器最後上線時間
+     * @param {string} sensorId - 感測器ID
+     */
+    updateSensorLastSeen(sensorId) {
+        this.sensorLastUpdate.set(sensorId, Date.now());
+        
+        // 清除該感測器的離線狀態
+        this.clearOfflineAlert(sensorId);
+    }
+
+    /**
+     * 檢查所有感測器是否離線
+     */
+    checkAllSensorsOffline() {
+        const now = Date.now();
+        
+        for (const [sensorId, lastUpdate] of this.sensorLastUpdate.entries()) {
+            const timeSinceUpdate = now - lastUpdate;
+            
+            if (timeSinceUpdate > this.offlineThreshold) {
+                this.triggerOfflineAlert(sensorId, timeSinceUpdate);
+            }
+        }
+    }
+
+    /**
+     * 觸發離線警報
+     * @param {string} sensorId - 感測器ID
+     * @param {number} offlineTime - 離線時間（毫秒）
+     */
+    triggerOfflineAlert(sensorId, offlineTime) {
+        const offlineMinutes = Math.floor(offlineTime / 60000);
+        const offlineSeconds = Math.floor((offlineTime % 60000) / 1000);
+        
+        const alertData = {
+            sensorId: sensorId,
+            isAbnormal: true,
+            level: 'critical',
+            type: 'offline',
+            message: `感測器 ${sensorId} 已離線 ${offlineMinutes}分${offlineSeconds}秒`,
+            offlineTime: offlineTime
+        };
+
+        // 應用離線樣式
+        this.applyOfflineStyle(sensorId);
+        
+        // 觸發警報（但不重複播放相同感測器的離線警報）
+        if (!this.isOfflineAlertActive(sensorId)) {
+            this.triggerAlert(alertData);
+            this.markOfflineAlertActive(sensorId);
+        }
+    }
+
+    /**
+     * 清除感測器的離線警報
+     * @param {string} sensorId - 感測器ID
+     */
+    clearOfflineAlert(sensorId) {
+        // 清除離線樣式
+        this.clearOfflineStyle(sensorId);
+        
+        // 標記離線警報為非活躍
+        this.markOfflineAlertInactive(sensorId);
+    }
+
+    /**
+     * 應用離線樣式
+     * @param {string} sensorId - 感測器ID
+     */
+    applyOfflineStyle(sensorId) {
+        // 找到所有相關的感測器元素
+        const sensorElements = document.querySelectorAll(`[data-sensor-id="${sensorId}"], [data-id="${sensorId}"]`);
+        
+        sensorElements.forEach(element => {
+            element.classList.add('sensor-offline');
+            
+            // 添加離線圖示
+            this.addOfflineIcon(element);
+        });
+
+        // 更新感測器列表項目
+        const listItem = document.querySelector(`[data-sensor-id="${sensorId}"].sensor-list-item`);
+        if (listItem) {
+            listItem.classList.add('sensor-offline');
+            
+            // 更新狀態指示器
+            const statusIndicator = listItem.querySelector('.alert-status-indicator');
+            if (statusIndicator) {
+                statusIndicator.innerHTML = '<span class="badge bg-secondary">離線</span>';
+            }
+        }
+    }
+
+    /**
+     * 清除離線樣式
+     * @param {string} sensorId - 感測器ID
+     */
+    clearOfflineStyle(sensorId) {
+        // 找到所有相關的感測器元素
+        const sensorElements = document.querySelectorAll(`[data-sensor-id="${sensorId}"], [data-id="${sensorId}"]`);
+        
+        sensorElements.forEach(element => {
+            element.classList.remove('sensor-offline');
+            
+            // 移除離線圖示
+            this.removeOfflineIcon(element);
+        });
+
+        // 更新感測器列表項目
+        const listItem = document.querySelector(`[data-sensor-id="${sensorId}"].sensor-list-item`);
+        if (listItem) {
+            listItem.classList.remove('sensor-offline');
+            
+            // 清除狀態指示器
+            const statusIndicator = listItem.querySelector('.alert-status-indicator');
+            if (statusIndicator) {
+                statusIndicator.innerHTML = '';
+            }
+        }
+    }
+
+    /**
+     * 添加離線圖示
+     * @param {Element} element - 目標元素
+     */
+    addOfflineIcon(element) {
+        if (element.querySelector('.offline-icon')) return; // 避免重複添加
+        
+        const offlineIcon = document.createElement('div');
+        offlineIcon.className = 'offline-icon';
+        offlineIcon.innerHTML = '<i class="fas fa-wifi-slash text-secondary"></i>';
+        offlineIcon.title = '設備離線';
+        
+        element.appendChild(offlineIcon);
+    }
+
+    /**
+     * 移除離線圖示
+     * @param {Element} element - 目標元素
+     */
+    removeOfflineIcon(element) {
+        const offlineIcon = element.querySelector('.offline-icon');
+        if (offlineIcon) {
+            offlineIcon.remove();
+        }
+    }
+
+    /**
+     * 檢查離線警報是否活躍
+     * @param {string} sensorId - 感測器ID
+     * @returns {boolean}
+     */
+    isOfflineAlertActive(sensorId) {
+        return this.offlineTimers.has(sensorId);
+    }
+
+    /**
+     * 標記離線警報為活躍
+     * @param {string} sensorId - 感測器ID
+     */
+    markOfflineAlertActive(sensorId) {
+        this.offlineTimers.set(sensorId, true);
+    }
+
+    /**
+     * 標記離線警報為非活躍
+     * @param {string} sensorId - 感測器ID
+     */
+    markOfflineAlertInactive(sensorId) {
+        this.offlineTimers.delete(sensorId);
     }
 }
 
