@@ -125,8 +125,9 @@ class MQTTClient {
     // 訂閱通用主題來監聽新設備
     async subscribeToGeneralTopics() {
         const generalTopics = [
-            'device/+/#',      // 監聽所有設備主題
-            'device/name'      // 監聽設備註冊主題
+            'device/+/#',              // 監聽所有設備主題
+            'device/name'              // 監聽設備註冊主題
+            // 注意：MQTT 通配符不支援 R+ 語法，改用 device/+/# 通用匹配，在處理時過濾
         ];
 
         for (const topic of generalTopics) {
@@ -148,9 +149,14 @@ class MQTTClient {
         const topics = [
             `device/${deviceName}/nodeinf`,    // 控制設備狀態
             `device/${deviceName}/seninf`,     // 感測器設備狀態
-            `device/${deviceName}/deviceinf`,  // 設備資訊
-            `device/${deviceName}/feeding`     // 飼養天數更新
+            `device/${deviceName}/deviceinf`   // 設備資訊
         ];
+
+        // 只有 R 開頭的設備（主機）才訂閱 feeding 主題
+        if (deviceName.startsWith('R')) {
+            topics.push(`device/${deviceName}/feeding`);
+            console.log(`📡 主機設備 ${deviceName} 將訂閱 feeding 主題`);
+        }
 
         for (const topic of topics) {
             if (!this.subscribedTopics.has(topic)) {
@@ -173,54 +179,67 @@ class MQTTClient {
         }
     }
 
-    // 手動重新訂閱所有設備的 feeding 主題
+    // 手動重新訂閱所有主機設備（R開頭）的 feeding 主題
     async resubscribeAllFeedingTopics() {
         try {
-            console.log('🔄 開始重新訂閱所有設備的 feeding 主題...');
+            console.log('🔄 開始重新訂閱所有主機設備的 feeding 主題...');
             
             // 取得所有場域的設備名稱
             const farms = await Farm.find({});
-            const deviceNames = new Set();
+            const allDeviceNames = new Set();
+            const hostDeviceNames = new Set(); // R 開頭的主機設備
 
             farms.forEach(farm => {
                 farm.sensors.forEach(sensor => {
                     if (sensor.deviceName) {
-                        deviceNames.add(sensor.deviceName);
+                        allDeviceNames.add(sensor.deviceName);
+                        // 只有 R 開頭的設備才是主機，需要 feeding
+                        if (sensor.deviceName.startsWith('R')) {
+                            hostDeviceNames.add(sensor.deviceName);
+                        }
                     }
                 });
                 farm.devices.forEach(device => {
                     if (device.deviceName) {
-                        deviceNames.add(device.deviceName);
+                        allDeviceNames.add(device.deviceName);
+                        // 只有 R 開頭的設備才是主機，需要 feeding
+                        if (device.deviceName.startsWith('R')) {
+                            hostDeviceNames.add(device.deviceName);
+                        }
                     }
                 });
             });
 
-            // 為每個設備訂閱 feeding 主題
+            // 只為主機設備（R開頭）訂閱 feeding 主題
             let subscribeCount = 0;
-            for (const deviceName of deviceNames) {
+            for (const deviceName of hostDeviceNames) {
                 const feedingTopic = `device/${deviceName}/feeding`;
                 
                 if (!this.subscribedTopics.has(feedingTopic)) {
                     this.client.subscribe(feedingTopic, (err) => {
                         if (err) {
-                            console.error(`訂閱 feeding 主題 ${feedingTopic} 失敗:`, err);
+                            console.error(`訂閱主機 feeding 主題 ${feedingTopic} 失敗:`, err);
                         } else {
                             this.subscribedTopics.add(feedingTopic);
-                            console.log(`✅ 已訂閱 feeding 主題: ${feedingTopic}`);
+                            console.log(`✅ 已訂閱主機 feeding 主題: ${feedingTopic}`);
                         }
                     });
                     subscribeCount++;
                 } else {
-                    console.log(`⏭️ feeding 主題已存在: ${feedingTopic}`);
+                    console.log(`⏭️ 主機 feeding 主題已存在: ${feedingTopic}`);
                 }
             }
 
-            console.log(`🎯 完成重新訂閱，新增了 ${subscribeCount} 個 feeding 主題訂閱`);
-            console.log(`📊 總共 ${deviceNames.size} 個設備名稱`);
+            console.log(`🎯 完成重新訂閱，新增了 ${subscribeCount} 個主機 feeding 主題訂閱`);
+            console.log(`📊 總共 ${allDeviceNames.size} 個設備名稱，其中 ${hostDeviceNames.size} 個主機設備`);
             
-            return { deviceNames: Array.from(deviceNames), newSubscriptions: subscribeCount };
+            return { 
+                allDeviceNames: Array.from(allDeviceNames), 
+                hostDeviceNames: Array.from(hostDeviceNames),
+                newSubscriptions: subscribeCount 
+            };
         } catch (error) {
-            console.error('重新訂閱 feeding 主題失敗:', error);
+            console.error('重新訂閱主機 feeding 主題失敗:', error);
             throw error;
         }
     }
