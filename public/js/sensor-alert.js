@@ -17,8 +17,11 @@ class SensorAlertSystem {
         this.sensorLastUpdate = new Map(); // 追蹤感測器最後更新時間
         this.offlineTimers = new Map(); // 離線檢測計時器
         this.offlineThreshold = 30000; // 30秒離線閾值
+        this.alertLog = []; // 警報記錄
+        this.maxLogEntries = 50; // 最大記錄數量
         this.initAudio();
         this.startOfflineMonitoring();
+        this.initAlertLogUI();
     }
 
     /**
@@ -351,11 +354,273 @@ class SensorAlertSystem {
      * @param {object} alertInfo - 警報資訊
      */
     logAlert(alertInfo) {
-        const timestamp = new Date().toLocaleString('zh-TW');
-        console.log(`🚨 [${timestamp}] ${alertInfo.level.toUpperCase()} 警報: ${alertInfo.message}`);
+        const timestamp = new Date();
+        const logEntry = {
+            id: Date.now() + Math.random(), // 唯一ID
+            timestamp: timestamp,
+            level: alertInfo.level,
+            message: alertInfo.message,
+            sensorId: alertInfo.sensorId || 'unknown',
+            sensorType: alertInfo.sensorType || 'unknown',
+            value: alertInfo.value || 'N/A',
+            unit: alertInfo.unit || '',
+            acknowledged: false // 是否已確認
+        };
+
+        // 添加到記錄陣列（最新的在前面）
+        this.alertLog.unshift(logEntry);
+
+        // 限制記錄數量
+        if (this.alertLog.length > this.maxLogEntries) {
+            this.alertLog = this.alertLog.slice(0, this.maxLogEntries);
+        }
+
+        // 控制台記錄
+        console.log(`🚨 [${timestamp.toLocaleString('zh-TW')}] ${alertInfo.level.toUpperCase()} 警報: ${alertInfo.message}`);
+
+        // 更新UI顯示
+        this.updateAlertLogUI();
+
+        // 保存到本地儲存
+        this.saveAlertLog();
+    }
+
+    /**
+     * 初始化警報記錄UI
+     */
+    initAlertLogUI() {
+        // 載入保存的警報記錄
+        this.loadAlertLog();
         
-        // 可以發送到伺服器記錄
-        this.sendAlertToServer(alertInfo);
+        // 創建浮動警報記錄按鈕
+        this.createAlertLogButton();
+    }
+
+    /**
+     * 創建警報記錄按鈕
+     */
+    createAlertLogButton() {
+        // 避免重複創建
+        if (document.getElementById('alert-log-btn')) return;
+
+        const button = document.createElement('button');
+        button.id = 'alert-log-btn';
+        button.className = 'btn btn-outline-warning position-fixed';
+        button.style.cssText = 'bottom: 20px; right: 20px; z-index: 1050; border-radius: 50%; width: 60px; height: 60px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);';
+        button.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+        button.title = '查看警報記錄';
+        button.onclick = () => this.showAlertLogModal();
+
+        // 添加未確認警報數量標章
+        const badge = document.createElement('span');
+        badge.id = 'alert-log-badge';
+        badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
+        badge.style.display = 'none';
+        button.appendChild(badge);
+
+        document.body.appendChild(button);
+    }
+
+    /**
+     * 更新警報記錄UI
+     */
+    updateAlertLogUI() {
+        const badge = document.getElementById('alert-log-badge');
+        if (badge) {
+            const unacknowledgedCount = this.alertLog.filter(log => !log.acknowledged).length;
+            if (unacknowledgedCount > 0) {
+                badge.textContent = unacknowledgedCount > 99 ? '99+' : unacknowledgedCount;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
+
+    /**
+     * 顯示警報記錄模態對話框
+     */
+    showAlertLogModal() {
+        // 創建模態對話框（如果不存在）
+        let modal = document.getElementById('alert-log-modal');
+        if (!modal) {
+            modal = this.createAlertLogModal();
+        }
+
+        // 更新模態內容
+        this.updateAlertLogModalContent();
+
+        // 顯示模態
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
+    /**
+     * 創建警報記錄模態對話框
+     */
+    createAlertLogModal() {
+        const modalHTML = `
+            <div class="modal fade" id="alert-log-modal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                警報記錄
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <button class="btn btn-sm btn-success" onclick="window.sensorAlertSystem.acknowledgeAllAlerts()">
+                                        <i class="fas fa-check-double me-1"></i>全部確認
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary ms-2" onclick="window.sensorAlertSystem.clearAlertLog()">
+                                        <i class="fas fa-trash me-1"></i>清除記錄
+                                    </button>
+                                </div>
+                                <small class="text-muted">最多顯示 ${this.maxLogEntries} 筆記錄</small>
+                            </div>
+                            <div id="alert-log-content" class="alert-log-container" style="max-height: 400px; overflow-y: auto;">
+                                <!-- 警報記錄將在這裡顯示 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        return document.getElementById('alert-log-modal');
+    }
+
+    /**
+     * 更新警報記錄模態內容
+     */
+    updateAlertLogModalContent() {
+        const container = document.getElementById('alert-log-content');
+        if (!container) return;
+
+        if (this.alertLog.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-smile fa-2x mb-2"></i>
+                    <p>目前沒有警報記錄</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        this.alertLog.forEach(log => {
+            const levelColors = {
+                warning: 'warning',
+                danger: 'danger', 
+                critical: 'danger'
+            };
+            const levelIcons = {
+                warning: 'exclamation-triangle',
+                danger: 'exclamation-circle',
+                critical: 'times-circle'
+            };
+
+            html += `
+                <div class="alert alert-${levelColors[log.level] || 'secondary'} ${log.acknowledged ? 'opacity-50' : ''} mb-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-1">
+                                <i class="fas fa-${levelIcons[log.level] || 'info-circle'} me-2"></i>
+                                <strong class="text-uppercase">${log.level}</strong>
+                                ${log.acknowledged ? '<span class="badge bg-success ms-2">已確認</span>' : ''}
+                            </div>
+                            <div class="mb-1">${log.message}</div>
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>${log.timestamp.toLocaleString('zh-TW')}
+                                | <i class="fas fa-microchip me-1"></i>${log.sensorId}
+                                | <i class="fas fa-chart-line me-1"></i>${log.value} ${log.unit}
+                            </small>
+                        </div>
+                        <div class="ms-2">
+                            ${!log.acknowledged ? `
+                                <button class="btn btn-sm btn-outline-success" 
+                                        onclick="window.sensorAlertSystem.acknowledgeAlert('${log.id}')"
+                                        title="確認此警報">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    /**
+     * 確認單個警報
+     */
+    acknowledgeAlert(logId) {
+        const log = this.alertLog.find(l => l.id == logId);
+        if (log) {
+            log.acknowledged = true;
+            this.updateAlertLogModalContent();
+            this.updateAlertLogUI();
+            this.saveAlertLog();
+        }
+    }
+
+    /**
+     * 確認所有警報
+     */
+    acknowledgeAllAlerts() {
+        this.alertLog.forEach(log => log.acknowledged = true);
+        this.updateAlertLogModalContent();
+        this.updateAlertLogUI();
+        this.saveAlertLog();
+    }
+
+    /**
+     * 清除警報記錄
+     */
+    clearAlertLog() {
+        if (confirm('確定要清除所有警報記錄嗎？')) {
+            this.alertLog = [];
+            this.updateAlertLogModalContent();
+            this.updateAlertLogUI();
+            this.saveAlertLog();
+        }
+    }
+
+    /**
+     * 保存警報記錄到本地儲存
+     */
+    saveAlertLog() {
+        try {
+            localStorage.setItem('sensor_alert_log', JSON.stringify(this.alertLog));
+        } catch (error) {
+            console.warn('無法保存警報記錄:', error);
+        }
+    }
+
+    /**
+     * 從本地儲存載入警報記錄
+     */
+    loadAlertLog() {
+        try {
+            const saved = localStorage.getItem('sensor_alert_log');
+            if (saved) {
+                this.alertLog = JSON.parse(saved).map(log => ({
+                    ...log,
+                    timestamp: new Date(log.timestamp) // 轉換回Date對象
+                }));
+                this.updateAlertLogUI();
+            }
+        } catch (error) {
+            console.warn('無法載入警報記錄:', error);
+            this.alertLog = [];
+        }
     }
 
     /**

@@ -148,7 +148,8 @@ class MQTTClient {
         const topics = [
             `device/${deviceName}/nodeinf`,    // 控制設備狀態
             `device/${deviceName}/seninf`,     // 感測器設備狀態
-            `device/${deviceName}/deviceinf`   // 設備資訊
+            `device/${deviceName}/deviceinf`,  // 設備資訊
+            `device/${deviceName}/feeding`     // 飼養天數更新
         ];
 
         for (const topic of topics) {
@@ -233,6 +234,9 @@ class MQTTClient {
                         break;
                     case 'deviceinf':
                         await this.handleDeviceInfo(deviceName, data);
+                        break;
+                    case 'feeding':
+                        await this.handleFeedingInfo(deviceName, data);
                         break;
                     default:
                         console.warn('未知的訊息類型:', messageType);
@@ -788,6 +792,74 @@ class MQTTClient {
             }
         } catch (error) {
             console.error('處理設備資訊失敗:', error);
+        }
+    }
+
+    // 處理飼養天數資訊訊息
+    async handleFeedingInfo(deviceName, data) {
+        try {
+            console.log(`🐷 處理飼養天數資訊 - 設備: ${deviceName}`, data);
+            
+            const farm = await Farm.findByDeviceName(deviceName);
+            if (!farm) {
+                console.warn(`找不到設備 ${deviceName} 對應的場域`);
+                return;
+            }
+
+            // 解析飼養天數資料
+            const { feedDay, timestamp } = data;
+            
+            if (feedDay === undefined) {
+                console.warn('飼養天數資料格式不正確，缺少 feedDay 欄位:', data);
+                return;
+            }
+
+            const oldFeedingDays = farm.stats.feeding_days;
+            const newFeedingDays = parseInt(feedDay);
+            
+            // 更新飼養天數
+            farm.stats.feeding_days = newFeedingDays;
+            farm.stats.last_updated = new Date(timestamp || new Date());
+            
+            await farm.save();
+            
+            console.log(`🎯 已更新場域 ${farm.name} 的飼養天數: ${oldFeedingDays} → ${newFeedingDays} 天`);
+            console.log(`📅 更新時間: ${timestamp || new Date().toISOString()}`);
+            
+            // 如果有顯著變化，記錄特殊事件
+            if (Math.abs(newFeedingDays - oldFeedingDays) > 1) {
+                console.log(`⚠️ 飼養天數發生顯著變化，可能為新一批飼養開始或數據重置`);
+            }
+            
+            // 觸發即時更新事件（可供其他模組監聽）
+            this.notifyFeedingDaysUpdate(farm._id, {
+                farmName: farm.name,
+                deviceName: deviceName,
+                oldFeedingDays: oldFeedingDays,
+                newFeedingDays: newFeedingDays,
+                timestamp: timestamp || new Date().toISOString()
+            });
+            
+        } catch (error) {
+            console.error('處理飼養天數資訊失敗:', error);
+        }
+    }
+
+    // 通知飼養天數更新（事件發送）
+    notifyFeedingDaysUpdate(farmId, updateInfo) {
+        try {
+            // 如果有其他模組需要監聽飼養天數更新，可以在這裡發送事件
+            console.log(`📡 飼養天數更新事件: 場域 ${updateInfo.farmName} (${farmId})`);
+            console.log(`   設備: ${updateInfo.deviceName}`);
+            console.log(`   天數變化: ${updateInfo.oldFeedingDays} → ${updateInfo.newFeedingDays}`);
+            console.log(`   時間: ${updateInfo.timestamp}`);
+            
+            // 這裡可以添加 WebSocket 或 Socket.IO 推送
+            // 或是發送到其他通知系統
+            // 例如：this.broadcastToClients('feeding_days_update', updateInfo);
+            
+        } catch (error) {
+            console.error('發送飼養天數更新通知失敗:', error);
         }
     }
 

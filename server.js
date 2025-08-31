@@ -425,6 +425,42 @@ app.get('/api/system/status', (req, res) => {
     });
 });
 
+// 測試飼養天數MQTT訊息
+app.post('/api/test/feeding', async (req, res) => {
+    try {
+        const { deviceName = 'R02277d5', feedDay = '2' } = req.body;
+        
+        // 模擬MQTT訊息
+        const mockMessage = {
+            feedDay: feedDay.toString(),
+            timestamp: new Date().toISOString()
+        };
+        
+        console.log(`🧪 測試飼養天數更新 - 設備: ${deviceName}, 天數: ${feedDay}`);
+        
+        // 直接調用處理函數
+        await mqttClient.handleFeedingInfo(deviceName, mockMessage);
+        
+        res.json({
+            success: true,
+            message: `已測試飼養天數更新`,
+            data: {
+                deviceName: deviceName,
+                feedDay: feedDay,
+                timestamp: mockMessage.timestamp
+            }
+        });
+        
+    } catch (error) {
+        console.error('測試飼養天數更新失敗:', error);
+        res.status(500).json({
+            success: false,
+            message: '測試失敗',
+            error: error.message
+        });
+    }
+});
+
 // 場域即時資料 API
 app.get('/api/farms/:id/realtime', async (req, res) => {
     try {
