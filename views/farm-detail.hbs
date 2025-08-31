@@ -299,6 +299,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let sensors = {{{json farm.sensors}}};
     let devices = {{{json farm.devices}}};
     
+    // 將 sensors 設為全域變數，供其他函數使用
+    window.farmSensors = sensors;
+    window.farmDevices = devices;
+    
     const editModeBtn = document.getElementById('edit-mode-btn');
     const addSensorBtn = document.getElementById('add-sensor-btn');
     const addDeviceBtn = document.getElementById('add-device-btn');
@@ -660,6 +664,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 existingSensor.lastValue = updatedSensor.lastValue;
                 existingSensor.status = updatedSensor.status;
                 
+                // 同步更新全域 sensors 資料
+                const globalSensor = window.farmSensors ? window.farmSensors.find(s => s.deviceName === updatedSensor.deviceName) : null;
+                if (globalSensor) {
+                    globalSensor.lastValue = updatedSensor.lastValue;
+                    globalSensor.status = updatedSensor.status;
+                }
+                
                 // 更新感測器列表中的數據並檢查警報
                 updateSensorListItem(existingSensor);
             }
@@ -918,7 +929,7 @@ function openSensorConfigModal(sensorId, description, name, type) {
     document.getElementById('configSensorType').value = type;
     
     // 檢查感測器的數值類型
-    const sensor = sensors.find(s => s.id === sensorId);
+    const sensor = window.farmSensors ? window.farmSensors.find(s => s.id === sensorId) : null;
     let valueTypes = [];
     
     if (sensor && sensor.lastValue && sensor.lastValue.currentValues) {
@@ -1141,7 +1152,7 @@ function saveSensorConfig() {
     
     if (hasAnyConfig) {
         // 重新檢查該感測器的警報狀態
-        const sensor = sensors.find(s => s.id === sensorId);
+        const sensor = window.farmSensors ? window.farmSensors.find(s => s.id === sensorId) : null;
         if (sensor && sensor.lastValue && sensor.lastValue.currentValues) {
             updateSensorListItem(sensor);
         }
@@ -1162,7 +1173,7 @@ function resetToDefaultConfig() {
     const sensorType = document.getElementById('configSensorType').value;
     
     // 檢查感測器的數值類型
-    const sensor = sensors.find(s => s.id === sensorId);
+    const sensor = window.farmSensors ? window.farmSensors.find(s => s.id === sensorId) : null;
     let valueTypes = [];
     
     if (sensor && sensor.lastValue && sensor.lastValue.currentValues) {
@@ -1187,7 +1198,7 @@ function removeIndividualConfig() {
             window.sensorAlertSystem.removeIndividualSensorConfig(sensorId);
             
             // 重新檢查該感測器的警報狀態
-            const sensor = sensors.find(s => s.id === sensorId);
+            const sensor = window.farmSensors ? window.farmSensors.find(s => s.id === sensorId) : null;
             if (sensor && sensor.lastValue && sensor.lastValue.currentValues) {
                 updateSensorListItem(sensor);
             }
