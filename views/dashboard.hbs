@@ -1025,6 +1025,20 @@ function updateCarouselSensorData(farmsData) {
                                 sensorValues.appendChild(valueDiv);
                             });
                             sensorValues.style.display = 'flex';
+                            
+                            // 檢查感測器數值是否異常並應用警報樣式
+                            if (window.sensorAlertSystem) {
+                                // 清除舊的警報樣式
+                                window.sensorAlertSystem.clearAlertStyle(sensorCard);
+                                
+                                // 檢查每個數值
+                                sensor.lastValue.currentValues.forEach(value => {
+                                    const alertInfo = window.sensorAlertSystem.checkSensorValue(sensor.id, sensor.type, value.value, value.unit);
+                                    if (alertInfo.isAbnormal) {
+                                        window.sensorAlertSystem.applyAlertStyle(sensorCard, alertInfo);
+                                    }
+                                });
+                            }
                         }
                         
                         // 隱藏離線狀態

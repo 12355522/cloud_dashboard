@@ -104,7 +104,6 @@ body {
     cursor: grabbing !important; 
     z-index: 30;
     box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    opacity: 0.8;
 }
 
 .layout-container-enhanced.edit-mode .sensor-marker,
@@ -213,7 +212,6 @@ body {
 }
 
 .sensor-marker:hover, .device-marker:hover {
-    transform: scale(1.2);
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
@@ -470,7 +468,84 @@ body {
     color: #6c757d;
 }
 
-/* 感測器顯示樣式 */
+/* 感測器卡片樣式（與 dashboard 一致） */
+.sensor-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    min-width: 120px;
+    backdrop-filter: blur(10px);
+}
+
+.sensor-card.active {
+    border-color: #28a745;
+    background: rgba(255, 255, 255, 0.98);
+}
+
+.sensor-card.inactive {
+    border-color: #6c757d;
+    background: rgba(255, 255, 255, 0.9);
+    opacity: 0.8;
+}
+
+.sensor-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.sensor-info {
+    text-align: center;
+}
+
+.sensor-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    line-height: 1.2;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.sensor-values {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sensor-value-inline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: rgba(40, 167, 69, 0.1);
+    border-radius: 6px;
+    padding: 4px 6px;
+}
+
+.sensor-value-inline .value {
+    font-weight: 700;
+    color: #28a745;
+    font-size: 14px;
+}
+
+.sensor-value-inline .unit {
+    color: #6c757d;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.sensor-status {
+    font-size: 11px;
+    color: #6c757d;
+    font-weight: 500;
+    padding: 4px 6px;
+    background: rgba(108, 117, 125, 0.1);
+    border-radius: 6px;
+}
+
+/* 舊版感測器顯示樣式（保留相容性） */
 .sensor-display {
     display: flex;
     flex-direction: column;
@@ -552,4 +627,440 @@ body {
 
 .sensor-marker[data-sensor-type="wind"] {
     border-color: #6c757d;
+}
+
+/* 感測器數值異常警告樣式 */
+.sensor-card.warning {
+    border-left: 4px solid #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+    animation: warning-pulse 2s infinite;
+    box-shadow: 0 0 20px rgba(255, 193, 7, 0.5);
+}
+
+.sensor-card.danger {
+    border-left: 4px solid #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+    animation: danger-pulse 1.5s infinite;
+    box-shadow: 0 0 25px rgba(220, 53, 69, 0.6);
+}
+
+.sensor-card.critical {
+    border-left: 4px solid #dc3545;
+    background: rgba(220, 53, 69, 0.2);
+    animation: critical-flash 1s infinite;
+    box-shadow: 0 0 30px rgba(220, 53, 69, 0.8);
+    transform: scale(1.05);
+}
+
+/* 異常數值顯示樣式 */
+.sensor-value-inline.warning .value {
+    color: #ffc107;
+    font-weight: 800;
+    text-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
+}
+
+.sensor-value-inline.danger .value {
+    color: #dc3545;
+    font-weight: 800;
+    text-shadow: 0 0 5px rgba(220, 53, 69, 0.5);
+}
+
+.sensor-value-inline.critical .value {
+    color: #dc3545;
+    font-weight: 900;
+    text-shadow: 0 0 8px rgba(220, 53, 69, 0.8);
+    animation: text-blink 0.5s infinite;
+}
+
+/* 警報動畫效果 */
+@keyframes warning-pulse {
+    0%, 100% { 
+        box-shadow: 0 0 20px rgba(255, 193, 7, 0.5);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 0 30px rgba(255, 193, 7, 0.8);
+        transform: scale(1.02);
+    }
+}
+
+@keyframes danger-pulse {
+    0%, 100% { 
+        box-shadow: 0 0 25px rgba(220, 53, 69, 0.6);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 0 35px rgba(220, 53, 69, 0.9);
+        transform: scale(1.03);
+    }
+}
+
+@keyframes critical-flash {
+    0%, 100% { 
+        background: rgba(220, 53, 69, 0.2);
+        box-shadow: 0 0 30px rgba(220, 53, 69, 0.8);
+    }
+    50% { 
+        background: rgba(220, 53, 69, 0.4);
+        box-shadow: 0 0 40px rgba(220, 53, 69, 1);
+    }
+}
+
+@keyframes text-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* 警報圖示樣式 */
+.alert-icon {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: white;
+    font-weight: bold;
+    animation: alert-bounce 1s infinite;
+}
+
+.alert-icon.warning {
+    background: #ffc107;
+}
+
+.alert-icon.danger {
+    background: #dc3545;
+}
+
+.alert-icon.critical {
+    background: #dc3545;
+    animation: alert-bounce 0.5s infinite;
+}
+
+@keyframes alert-bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+/* 全螢幕警報覆蓋層 */
+.alert-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(220, 53, 69, 0.9);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    animation: alert-overlay-flash 0.5s infinite;
+}
+
+.alert-overlay.show {
+    display: flex;
+}
+
+.alert-overlay-content {
+    text-align: center;
+    color: white;
+    font-size: 48px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes alert-overlay-flash {
+    0%, 100% { background: rgba(220, 53, 69, 0.9); }
+    50% { background: rgba(220, 53, 69, 0.7); }
+}
+
+/* 感測器列表樣式 */
+.sensor-list-item {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.sensor-list-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.sensor-list-item.alert-warning {
+    border-left: 4px solid #ffc107;
+    background: rgba(255, 193, 7, 0.05);
+}
+
+.sensor-list-item.alert-danger {
+    border-left: 4px solid #dc3545;
+    background: rgba(220, 53, 69, 0.05);
+}
+
+.sensor-list-item.alert-critical {
+    border-left: 4px solid #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+    animation: list-item-pulse 2s infinite;
+}
+
+@keyframes list-item-pulse {
+    0%, 100% { 
+        background: rgba(220, 53, 69, 0.1);
+        transform: scale(1);
+    }
+    50% { 
+        background: rgba(220, 53, 69, 0.15);
+        transform: scale(1.01);
+    }
+}
+
+.sensor-list-name {
+    font-size: 16px;
+    color: #2c3e50;
+}
+
+.sensor-values-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.sensor-value-badge {
+    background: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.2);
+    border-radius: 6px;
+    padding: 4px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.3s ease;
+}
+
+.sensor-value-badge.warning {
+    background: rgba(255, 193, 7, 0.1);
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+.sensor-value-badge.warning .value {
+    color: #ffc107;
+    font-weight: 700;
+}
+
+.sensor-value-badge.danger {
+    background: rgba(220, 53, 69, 0.1);
+    border-color: rgba(220, 53, 69, 0.3);
+}
+
+.sensor-value-badge.danger .value {
+    color: #dc3545;
+    font-weight: 700;
+}
+
+.sensor-value-badge.critical {
+    background: rgba(220, 53, 69, 0.15);
+    border-color: rgba(220, 53, 69, 0.4);
+    animation: value-badge-blink 1s infinite;
+}
+
+.sensor-value-badge.critical .value {
+    color: #dc3545;
+    font-weight: 800;
+}
+
+@keyframes value-badge-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.sensor-value-badge .value {
+    font-weight: 600;
+    color: #28a745;
+    font-size: 14px;
+}
+
+.sensor-value-badge .unit {
+    font-size: 11px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.sensor-offline-status {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.sensor-meta-info {
+    border-top: 1px solid rgba(0,0,0,0.1);
+    padding-top: 8px;
+}
+
+.alert-status-indicator {
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.alert-level-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.alert-level-badge.warning {
+    background: #ffc107;
+    color: #000;
+}
+
+.alert-level-badge.danger {
+    background: #dc3545;
+    color: #fff;
+}
+
+.alert-level-badge.critical {
+    background: #dc3545;
+    color: #fff;
+    animation: alert-badge-pulse 1s infinite;
+}
+
+@keyframes alert-badge-pulse {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(220, 53, 69, 0.4);
+    }
+    50% { 
+        transform: scale(1.1);
+        box-shadow: 0 0 10px rgba(220, 53, 69, 0.6);
+    }
+}
+
+/* 感測器圖示樣式 */
+.sensor-list-item i {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+}
+
+/* 個別配置指示器 */
+.sensor-config-controls .btn {
+    position: relative;
+}
+
+.sensor-config-controls .btn.has-individual-config::after {
+    content: '●';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    color: #ffc107;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.sensor-config-controls .btn:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+/* 多數值類型配置樣式 */
+.value-type-config {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    background: rgba(0,0,0,0.02);
+}
+
+.value-type-config:last-child {
+    margin-bottom: 0 !important;
+}
+
+.value-type-config h6 {
+    color: #495057;
+    font-weight: 600;
+}
+
+.single-value-config {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    background: rgba(0,0,0,0.02);
+}
+
+.single-value-config h6 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+/* 配置區域的標題樣式 */
+.value-type-config .d-flex h6,
+.single-value-config h6 {
+    border-left: 4px solid #007bff;
+    padding-left: 10px;
+}
+
+/* 不同數值類型的顏色標識 */
+.value-type-config[data-value-type="temperature"] .d-flex h6,
+.single-value-config[data-value-type="temperature"] h6 {
+    border-left-color: #dc3545;
+}
+
+.value-type-config[data-value-type="humidity"] .d-flex h6,
+.single-value-config[data-value-type="humidity"] h6 {
+    border-left-color: #17a2b8;
+}
+
+.value-type-config[data-value-type="co2"] .d-flex h6,
+.single-value-config[data-value-type="co2"] h6 {
+    border-left-color: #6f42c1;
+}
+
+.value-type-config[data-value-type="pressure"] .d-flex h6,
+.single-value-config[data-value-type="pressure"] h6 {
+    border-left-color: #fd7e14;
+}
+
+.value-type-config[data-value-type="wind"] .d-flex h6,
+.single-value-config[data-value-type="wind"] h6 {
+    border-left-color: #6c757d;
+}
+
+.value-type-config[data-value-type="water"] .d-flex h6,
+.single-value-config[data-value-type="water"] h6 {
+    border-left-color: #20c997;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .alert-overlay-content {
+        font-size: 32px;
+    }
+    
+    .sensor-card.critical {
+        transform: scale(1.02);
+    }
+    
+    .sensor-values-list {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .sensor-value-badge {
+        justify-content: space-between;
+        width: 100%;
+    }
+    
+    .sensor-list-item {
+        margin-bottom: 8px;
+    }
 }

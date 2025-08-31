@@ -1,6 +1,18 @@
 // 畜牧業管理系統 JavaScript
 
+// 載入警報系統
 document.addEventListener('DOMContentLoaded', function() {
+    // 確保警報系統已載入
+    if (typeof window.sensorAlertSystem === 'undefined') {
+        console.warn('⚠️ 警報系統未載入，正在嘗試載入...');
+        // 如果警報系統未載入，創建一個簡單的替代版本
+        window.sensorAlertSystem = {
+            checkSensorValue: () => ({ isAbnormal: false, level: 'normal' }),
+            applyAlertStyle: () => {},
+            clearAlertStyle: () => {}
+        };
+    }
+
     // 初始化工具提示
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {

@@ -1,0 +1,498 @@
+{{!-- 感測器警報系統演示頁面 --}}
+
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1>
+                    <i class="fas fa-play-circle me-2"></i>警報系統演示
+                </h1>
+                <p class="text-muted mb-0">測試不同等級的感測器警報效果</p>
+            </div>
+            <div>
+                <a href="/alert-config" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-cog me-1"></i>警報配置
+                </a>
+                <a href="/" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>返回儀表板
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 演示說明 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle me-2"></i>演示說明</h6>
+            <p class="mb-2">點擊下方的按鈕來測試不同等級的警報效果。每個等級都有不同的視覺效果和音頻提示：</p>
+            <ul class="mb-0">
+                <li><strong>警告 (Warning)</strong>: 黃色邊框，緩慢脈動，低頻音頻</li>
+                <li><strong>危險 (Danger)</strong>: 紅色邊框，中等脈動，中頻音頻</li>
+                <li><strong>臨界 (Critical)</strong>: 紅色邊框，快速閃爍，高頻音頻，全螢幕覆蓋</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- 感測器卡片演示 -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-thermometer-half me-2"></i>溫度感測器
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <div id="temp-sensor-card" class="sensor-card active" style="position: relative;">
+                    <div class="sensor-info">
+                        <div class="sensor-name">舍內溫度</div>
+                        <div class="sensor-values">
+                            <div class="sensor-value-inline">
+                                <span class="value" id="temp-value">25.5</span>
+                                <span class="unit">°C</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-warning me-2" onclick="testWarning('temp')">測試警告</button>
+                    <button class="btn btn-sm btn-outline-danger me-2" onclick="testDanger('temp')">測試危險</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="testCritical('temp')">測試臨界</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-tint me-2"></i>濕度感測器
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <div id="humidity-sensor-card" class="sensor-card active" style="position: relative;">
+                    <div class="sensor-info">
+                        <div class="sensor-name">舍內濕度</div>
+                        <div class="sensor-values">
+                            <div class="sensor-value-inline">
+                                <span class="value" id="humidity-value">65</span>
+                                <span class="unit">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-warning me-2" onclick="testWarning('humidity')">測試警告</button>
+                    <button class="btn btn-sm btn-outline-danger me-2" onclick="testDanger('humidity')">測試危險</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="testCritical('humidity')">測試臨界</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-cloud me-2"></i>CO2感測器
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <div id="co2-sensor-card" class="sensor-card active" style="position: relative;">
+                    <div class="sensor-info">
+                        <div class="sensor-name">CO2濃度</div>
+                        <div class="sensor-values">
+                            <div class="sensor-value-inline">
+                                <span class="value" id="co2-value">800</span>
+                                <span class="unit">ppm</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-warning me-2" onclick="testWarning('co2')">測試警告</button>
+                    <button class="btn btn-sm btn-outline-danger me-2" onclick="testDanger('co2')">測試危險</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="testCritical('co2')">測試臨界</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量測試 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-rocket me-2"></i>批量測試
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <button class="btn btn-warning btn-lg me-3" onclick="testAllWarnings()">
+                    <i class="fas fa-exclamation-triangle me-2"></i>測試所有警告
+                </button>
+                <button class="btn btn-danger btn-lg me-3" onclick="testAllDangers()">
+                    <i class="fas fa-exclamation-circle me-2"></i>測試所有危險
+                </button>
+                <button class="btn btn-danger btn-lg" onclick="testAllCriticals()">
+                    <i class="fas fa-radiation me-2"></i>測試所有臨界
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 警報狀態顯示 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>警報狀態監控
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <div class="alert-status" id="warning-status">
+                            <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
+                            <h5 class="mt-2">警告</h5>
+                            <span class="badge bg-warning text-dark" id="warning-count">0</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="alert-status" id="danger-status">
+                            <i class="fas fa-exclamation-circle fa-2x text-danger"></i>
+                            <h5 class="mt-2">危險</h5>
+                            <span class="badge bg-danger" id="danger-count">0</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="alert-status" id="critical-status">
+                            <i class="fas fa-radiation fa-2x text-danger"></i>
+                            <h5 class="mt-2">臨界</h5>
+                            <span class="badge bg-danger" id="critical-count">0</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="alert-status" id="total-status">
+                            <i class="fas fa-chart-bar fa-2x text-info"></i>
+                            <h5 class="mt-2">總計</h5>
+                            <span class="badge bg-info" id="total-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 警報日誌 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-list me-2"></i>警報日誌
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="alert-log" style="max-height: 300px; overflow-y: auto;">
+                    <p class="text-muted text-center py-3">尚無警報記錄</p>
+                </div>
+                <div class="text-center mt-3">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="clearAlertLog()">
+                        <i class="fas fa-trash me-1"></i>清除日誌
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.alert-status {
+    padding: 20px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.02);
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+.alert-status.active {
+    background: rgba(255,193,7,0.1);
+    border-color: #ffc107;
+}
+
+.alert-status.danger-active {
+    background: rgba(220,53,69,0.1);
+    border-color: #dc3545;
+}
+
+.alert-status.critical-active {
+    background: rgba(220,53,69,0.2);
+    border-color: #dc3545;
+    animation: critical-status-pulse 1s infinite;
+}
+
+@keyframes critical-status-pulse {
+    0%, 100% { 
+        background: rgba(220,53,69,0.2);
+        transform: scale(1);
+    }
+    50% { 
+        background: rgba(220,53,69,0.4);
+        transform: scale(1.05);
+    }
+}
+</style>
+
+<script>
+let alertCounts = {
+    warning: 0,
+    danger: 0,
+    critical: 0
+};
+
+let alertLog = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 確保警報系統已載入
+    if (typeof window.sensorAlertSystem === 'undefined') {
+        console.warn('⚠️ 警報系統未載入');
+        return;
+    }
+    
+    // 初始化警報計數器
+    updateAlertCounts();
+    
+    // 監聽警報事件
+    window.addEventListener('sensorAlert', function(e) {
+        const alertInfo = e.detail;
+        addAlertToLog(alertInfo);
+        updateAlertCounts();
+    });
+});
+
+// 測試警告等級
+function testWarning(sensorType) {
+    if (!window.sensorAlertSystem) return;
+    
+    const sensorCard = document.getElementById(`${sensorType}-sensor-card`);
+    const alertInfo = {
+        isAbnormal: true,
+        level: 'warning',
+        message: `${sensorType} 感測器測試警告`,
+        sensorType: sensorType,
+        value: 45
+    };
+    
+    window.sensorAlertSystem.applyAlertStyle(sensorCard, alertInfo);
+    addAlertToLog(alertInfo);
+    updateAlertCounts();
+}
+
+// 測試危險等級
+function testDanger(sensorType) {
+    if (!window.sensorAlertSystem) return;
+    
+    const sensorCard = document.getElementById(`${sensorType}-sensor-card`);
+    const alertInfo = {
+        isAbnormal: true,
+        level: 'danger',
+        message: `${sensorType} 感測器測試危險`,
+        sensorType: sensorType,
+        value: 50
+    };
+    
+    window.sensorAlertSystem.applyAlertStyle(sensorCard, alertInfo);
+    addAlertToLog(alertInfo);
+    updateAlertCounts();
+}
+
+// 測試臨界等級
+function testCritical(sensorType) {
+    if (!window.sensorAlertSystem) return;
+    
+    const sensorCard = document.getElementById(`${sensorType}-sensor-card`);
+    const alertInfo = {
+        isAbnormal: true,
+        level: 'critical',
+        message: `${sensorType} 感測器測試臨界`,
+        sensorType: sensorType,
+        value: 55
+    };
+    
+    window.sensorAlertSystem.applyAlertStyle(sensorCard, alertInfo);
+    addAlertToLog(alertInfo);
+    updateAlertCounts();
+}
+
+// 測試所有警告
+function testAllWarnings() {
+    testWarning('temp');
+    setTimeout(() => testWarning('humidity'), 500);
+    setTimeout(() => testWarning('co2'), 1000);
+}
+
+// 測試所有危險
+function testAllDangers() {
+    testDanger('temp');
+    setTimeout(() => testDanger('humidity'), 500);
+    setTimeout(() => testDanger('co2'), 1000);
+}
+
+// 測試所有臨界
+function testAllCriticals() {
+    testCritical('temp');
+    setTimeout(() => testCritical('humidity'), 500);
+    setTimeout(() => testCritical('co2'), 1000);
+}
+
+// 添加警報到日誌
+function addAlertToLog(alertInfo) {
+    const timestamp = new Date().toLocaleString('zh-TW');
+    const logEntry = {
+        timestamp: timestamp,
+        level: alertInfo.level,
+        message: alertInfo.message,
+        sensorType: alertInfo.sensorType,
+        value: alertInfo.value
+    };
+    
+    alertLog.unshift(logEntry);
+    
+    // 限制日誌條目數量
+    if (alertLog.length > 100) {
+        alertLog = alertLog.slice(0, 100);
+    }
+    
+    updateAlertLog();
+}
+
+// 更新警報日誌顯示
+function updateAlertLog() {
+    const logContainer = document.getElementById('alert-log');
+    
+    if (alertLog.length === 0) {
+        logContainer.innerHTML = '<p class="text-muted text-center py-3">尚無警報記錄</p>';
+        return;
+    }
+    
+    let logHTML = '';
+    alertLog.forEach(entry => {
+        const levelClass = `text-${entry.level === 'warning' ? 'warning' : 'danger'}`;
+        const levelIcon = entry.level === 'warning' ? 'exclamation-triangle' : 
+                         entry.level === 'danger' ? 'exclamation-circle' : 'radiation';
+        
+        logHTML += `
+            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                <div>
+                    <i class="fas fa-${levelIcon} ${levelClass} me-2"></i>
+                    <span class="fw-bold">${entry.message}</span>
+                    <small class="text-muted ms-2">(${entry.sensorType})</small>
+                </div>
+                <small class="text-muted">${entry.timestamp}</small>
+            </div>
+        `;
+    });
+    
+    logContainer.innerHTML = logHTML;
+}
+
+// 更新警報計數器
+function updateAlertCounts() {
+    document.getElementById('warning-count').textContent = alertCounts.warning;
+    document.getElementById('danger-count').textContent = alertCounts.danger;
+    document.getElementById('critical-count').textContent = alertCounts.critical;
+    document.getElementById('total-count').textContent = alertCounts.warning + alertCounts.danger + alertCounts.critical;
+    
+    // 更新狀態樣式
+    updateStatusStyles();
+}
+
+// 更新狀態樣式
+function updateStatusStyles() {
+    const warningStatus = document.getElementById('warning-status');
+    const dangerStatus = document.getElementById('danger-status');
+    const criticalStatus = document.getElementById('critical-status');
+    
+    // 重置所有狀態
+    warningStatus.className = 'alert-status';
+    dangerStatus.className = 'alert-status';
+    criticalStatus.className = 'alert-status';
+    
+    // 根據計數添加樣式
+    if (alertCounts.warning > 0) {
+        warningStatus.classList.add('active');
+    }
+    if (alertCounts.danger > 0) {
+        dangerStatus.classList.add('danger-active');
+    }
+    if (alertCounts.critical > 0) {
+        criticalStatus.classList.add('critical-active');
+    }
+}
+
+// 清除警報日誌
+function clearAlertLog() {
+    if (confirm('確定要清除所有警報日誌嗎？')) {
+        alertLog = [];
+        alertCounts = { warning: 0, danger: 0, critical: 0 };
+        updateAlertLog();
+        updateAlertCounts();
+        
+        // 清除所有感測器卡片的警報樣式
+        const sensorCards = document.querySelectorAll('.sensor-card');
+        sensorCards.forEach(card => {
+            if (window.sensorAlertSystem) {
+                window.sensorAlertSystem.clearAlertStyle(card);
+            }
+        });
+    }
+}
+
+// 模擬感測器數值變化
+function simulateSensorValueChange(sensorType, value) {
+    const valueElement = document.getElementById(`${sensorType}-value`);
+    if (valueElement) {
+        valueElement.textContent = value;
+    }
+}
+
+// 自動測試循環
+function startAutoTest() {
+    let testCount = 0;
+    const testInterval = setInterval(() => {
+        if (testCount >= 10) {
+            clearInterval(testInterval);
+            return;
+        }
+        
+        const sensors = ['temp', 'humidity', 'co2'];
+        const sensor = sensors[testCount % sensors.length];
+        const level = testCount % 3 === 0 ? 'warning' : testCount % 3 === 1 ? 'danger' : 'critical';
+        
+        if (level === 'warning') {
+            testWarning(sensor);
+        } else if (level === 'danger') {
+            testDanger(sensor);
+        } else {
+            testCritical(sensor);
+        }
+        
+        testCount++;
+    }, 2000);
+}
+
+// 頁面載入完成後自動開始測試
+setTimeout(() => {
+    if (confirm('是否要開始自動測試循環？')) {
+        startAutoTest();
+    }
+}, 5000);
+</script>

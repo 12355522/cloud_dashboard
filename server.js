@@ -789,6 +789,30 @@ app.get('/carousel', (req, res) => {
     }
 });
 
+// 感測器警報配置頁面
+app.get('/alert-config', (req, res) => {
+    try {
+        res.render('alert-config', {
+            title: '感測器警報配置'
+        });
+    } catch (error) {
+        console.error('載入警報配置頁面失敗:', error);
+        res.status(500).render('error', { error: '載入頁面失敗: ' + error.message });
+    }
+});
+
+// 感測器警報演示頁面
+app.get('/alert-demo', (req, res) => {
+    try {
+        res.render('alert-demo', {
+            title: '警報系統演示'
+        });
+    } catch (error) {
+        console.error('載入警報演示頁面失敗:', error);
+        res.status(500).render('error', { error: '載入頁面失敗: ' + error.message });
+    }
+});
+
 // 新增攝影機到輪播
 app.post('/api/carousel/add-camera', (req, res) => {
     try {

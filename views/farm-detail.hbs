@@ -162,35 +162,87 @@
 <div class="row mt-4">
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">
                     <i class="fas fa-thermometer-half me-2"></i>感測器列表
                 </h6>
+                <div>
+                    <a href="/alert-config" class="btn btn-sm btn-outline-warning me-2" title="警報配置">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </a>
+                    <a href="/alert-demo" class="btn btn-sm btn-outline-info" title="警報演示">
+                        <i class="fas fa-play-circle"></i>
+                    </a>
+                </div>
             </div>
             <div class="card-body">
                 {{#if farm.sensors}}
-                <div class="list-group">
+                <div class="list-group" id="sensor-list-container">
                     {{#each farm.sensors}}
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            {{#if this.description}}
-                            <strong>{{this.description}}</strong>
-                            <br>
-                            <small class="text-muted">類型名稱: {{this.name}}</small>
-                            {{else}}
-                            <strong>{{this.name}}</strong>
-                            {{/if}}
-                            <br>
-                            <small class="text-muted">類型: {{this.type}}</small>
-                            {{#if this.deviceName}}
-                            <br>
-                            <small class="text-muted">設備: {{this.deviceName}}</small>
-                            {{/if}}
-                        </div>
-                        <div class="text-end">
-                            <span class="badge {{statusBadge this.status}} rounded-pill mb-1">{{this.status}}</span>
-                            <br>
-                            <small class="text-muted">{{this.x}}, {{this.y}}</small>
+                    <div class="list-group-item sensor-list-item" data-sensor-id="{{this.id}}" data-sensor-type="{{this.type}}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="{{this.type}}Icon me-2 text-primary"></i>
+                                    <div>
+                                        {{#if this.description}}
+                                        <strong class="sensor-list-name">{{this.description}}</strong>
+                                        <br>
+                                        <small class="text-muted">類型名稱: {{this.name}}</small>
+                                        {{else}}
+                                        <strong class="sensor-list-name">{{this.name}}</strong>
+                                        {{/if}}
+                                    </div>
+                                </div>
+                                
+                                <!-- 感測器數值顯示區域 -->
+                                <div class="sensor-values-container">
+                                    {{#if this.lastValue.currentValues}}
+                                    <div class="sensor-values-list">
+                                        {{#each this.lastValue.currentValues}}
+                                        <div class="sensor-value-badge" data-value="{{this.value}}" data-unit="{{this.unit}}">
+                                            <span class="value">{{this.value}}</span>
+                                            <span class="unit">{{this.unit}}</span>
+                                        </div>
+                                        {{/each}}
+                                    </div>
+                                    <small class="text-muted d-block mt-1">
+                                        更新時間: {{formatDate this.lastValue.timestamp}}
+                                    </small>
+                                    {{else}}
+                                    <div class="sensor-offline-status">
+                                        <span class="badge bg-secondary">離線</span>
+                                        <small class="text-muted ms-2">無最新數據</small>
+                                    </div>
+                                    {{/if}}
+                                </div>
+                                
+                                <div class="sensor-meta-info mt-2">
+                                    <small class="text-muted">
+                                        類型: {{this.type}} | 
+                                        {{#if this.deviceName}}設備: {{this.deviceName}} | {{/if}}
+                                        位置: ({{this.x}}, {{this.y}})
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="text-end">
+                                <div class="sensor-status-indicator mb-2">
+                                    <span class="badge {{statusBadge this.status}} rounded-pill">{{this.status}}</span>
+                                </div>
+                                <!-- 警報狀態顯示區域 -->
+                                <div class="alert-status-indicator" style="display: none;">
+                                    <div class="alert-level-badge"></div>
+                                </div>
+                                <!-- 個別警報配置按鈕 -->
+                                <div class="sensor-config-controls mt-2">
+                                    <button class="btn btn-sm btn-outline-secondary" 
+                                            onclick="openSensorConfigModal('{{this.id}}', '{{this.description}}', '{{this.name}}', '{{this.type}}')"
+                                            title="設定個別警報">
+                                        <i class="fas fa-cog"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     {{/each}}
@@ -469,30 +521,49 @@ document.addEventListener('DOMContentLoaded', function() {
             marker.dataset.type = 'sensor';
             marker.dataset.id = sensor.id;
             marker.dataset.sensorType = sensor.type;
+            
+            // 優先使用 description 作為感測器識別名稱，如果沒有則使用 name
             const displayName = sensor.description || sensor.name;
             marker.title = displayName;
             
-            const icon = getSensorIcon(sensor.type);
-            const statusClass = sensor.status === 'online' ? 'text-success' : 'text-secondary';
+            // 使用與 dashboard 一致的感測器卡片樣式
+            const isActive = sensor.lastValue && sensor.lastValue.currentValues;
+            const statusClass = isActive ? 'active' : 'inactive';
             
-            let markerHTML = '<div class="sensor-display">' +
-                '<div class="sensor-icon">' +
-                    '<i class="' + icon + ' ' + statusClass + '"></i>' +
-                '</div>' +
-                '<div class="sensor-name">' + displayName + '</div>';
+            let markerHTML = '<div class="sensor-card ' + statusClass + '">' +
+                '<div class="sensor-info">' +
+                    '<div class="sensor-name">' + displayName + '</div>';
             
-            if (sensor.lastValue && sensor.lastValue.currentValues) {
+            // 顯示感測器數值（如果有）
+            if (isActive) {
                 markerHTML += '<div class="sensor-values">';
                 sensor.lastValue.currentValues.forEach(value => {
-                    markerHTML += '<div class="sensor-value">' +
+                    markerHTML += '<div class="sensor-value-inline">' +
                         '<span class="value">' + value.value + '</span>' +
                         '<span class="unit">' + value.unit + '</span>' +
                     '</div>';
                 });
                 markerHTML += '</div>';
+                
+                // 檢查感測器數值是否異常並應用警報樣式
+                setTimeout(() => {
+                    const sensorCard = marker.querySelector('.sensor-card');
+                    if (sensorCard && window.sensorAlertSystem) {
+                        // 檢查每個數值
+                        sensor.lastValue.currentValues.forEach(value => {
+                            const alertInfo = window.sensorAlertSystem.checkSensorValue(sensor.id, sensor.type, value.value, value.unit);
+                            if (alertInfo.isAbnormal) {
+                                window.sensorAlertSystem.applyAlertStyle(sensorCard, alertInfo);
+                            }
+                        });
+                    }
+                }, 100);
+            } else {
+                // 顯示離線狀態
+                markerHTML += '<div class="sensor-status">離線</div>';
             }
             
-            markerHTML += '</div>';
+            markerHTML += '</div></div>';
             marker.innerHTML = markerHTML;
             sensorsContainer.appendChild(marker);
         });
@@ -588,9 +659,104 @@ document.addEventListener('DOMContentLoaded', function() {
             if (existingSensor) {
                 existingSensor.lastValue = updatedSensor.lastValue;
                 existingSensor.status = updatedSensor.status;
+                
+                // 更新感測器列表中的數據並檢查警報
+                updateSensorListItem(existingSensor);
             }
         });
         renderItems();
+    }
+    
+    // 更新感測器列表項目
+    function updateSensorListItem(sensor) {
+        const listItem = document.querySelector(`[data-sensor-id="${sensor.id}"]`);
+        if (!listItem) return;
+        
+        const valuesContainer = listItem.querySelector('.sensor-values-container');
+        const alertIndicator = listItem.querySelector('.alert-status-indicator');
+        
+        // 清除舊的警報樣式
+        listItem.classList.remove('alert-warning', 'alert-danger', 'alert-critical');
+        
+        if (sensor.lastValue && sensor.lastValue.currentValues) {
+            // 更新數值顯示
+            const valuesList = valuesContainer.querySelector('.sensor-values-list') || 
+                              valuesContainer.appendChild(document.createElement('div'));
+            valuesList.className = 'sensor-values-list';
+            valuesList.innerHTML = '';
+            
+            let highestAlertLevel = 'normal';
+            
+            // 檢查每個數值並應用警報樣式
+            sensor.lastValue.currentValues.forEach(value => {
+                const valueBadge = document.createElement('div');
+                valueBadge.className = 'sensor-value-badge';
+                valueBadge.setAttribute('data-value', value.value);
+                valueBadge.setAttribute('data-unit', value.unit);
+                
+                // 檢查警報狀態
+                if (window.sensorAlertSystem) {
+                    const alertInfo = window.sensorAlertSystem.checkSensorValue(sensor.id, sensor.type, value.value, value.unit);
+                    if (alertInfo.isAbnormal) {
+                        valueBadge.classList.add(alertInfo.level);
+                        if (alertInfo.level === 'critical') {
+                            highestAlertLevel = 'critical';
+                        } else if (alertInfo.level === 'danger' && highestAlertLevel !== 'critical') {
+                            highestAlertLevel = 'danger';
+                        } else if (alertInfo.level === 'warning' && highestAlertLevel === 'normal') {
+                            highestAlertLevel = 'warning';
+                        }
+                    }
+                }
+                
+                valueBadge.innerHTML = `
+                    <span class="value">${value.value}</span>
+                    <span class="unit">${value.unit}</span>
+                `;
+                valuesList.appendChild(valueBadge);
+            });
+            
+            // 應用列表項目的警報樣式
+            if (highestAlertLevel !== 'normal') {
+                listItem.classList.add(`alert-${highestAlertLevel}`);
+                
+                // 顯示警報指示器
+                alertIndicator.style.display = 'flex';
+                const alertBadge = alertIndicator.querySelector('.alert-level-badge') || 
+                                  alertIndicator.appendChild(document.createElement('div'));
+                alertBadge.className = `alert-level-badge ${highestAlertLevel}`;
+                alertBadge.textContent = highestAlertLevel.toUpperCase();
+                
+                // 播放警報聲（僅限最高等級）
+                if (window.sensorAlertSystem && highestAlertLevel === 'critical') {
+                    window.sensorAlertSystem.playAlertSound(highestAlertLevel);
+                }
+            } else {
+                alertIndicator.style.display = 'none';
+            }
+            
+            // 更新時間戳
+            const timestampElement = valuesContainer.querySelector('.text-muted') || 
+                                   valuesContainer.appendChild(document.createElement('small'));
+            timestampElement.className = 'text-muted d-block mt-1';
+            timestampElement.textContent = `更新時間: ${new Date(sensor.lastValue.timestamp).toLocaleString('zh-TW')}`;
+            
+            // 隱藏離線狀態
+            const offlineStatus = valuesContainer.querySelector('.sensor-offline-status');
+            if (offlineStatus) {
+                offlineStatus.style.display = 'none';
+            }
+            
+        } else {
+            // 顯示離線狀態
+            valuesContainer.innerHTML = `
+                <div class="sensor-offline-status">
+                    <span class="badge bg-secondary">離線</span>
+                    <small class="text-muted ms-2">無最新數據</small>
+                </div>
+            `;
+            alertIndicator.style.display = 'none';
+        }
     }
     
     try {
@@ -681,11 +847,447 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('🔧 初始化感測器資料顯示...');
         renderItems();
+        
+        // 初始化感測器列表的警報檢測
+        initializeSensorListAlerts();
+        
         startSensorDataRefresh();
         console.log('✅ 感測器資料自動更新已啟動');
     } catch (error) {
         console.error('❌ 初始化感測器功能時發生錯誤:', error);
     }
+    
+    // 初始化感測器列表的警報檢測
+    function initializeSensorListAlerts() {
+        // 初始化感測器圖示
+        initializeSensorIcons();
+        
+        // 等待警報系統載入
+        setTimeout(() => {
+            if (window.sensorAlertSystem) {
+                console.log('🔔 初始化感測器列表警報檢測...');
+                sensors.forEach(sensor => {
+                    if (sensor.lastValue && sensor.lastValue.currentValues) {
+                        updateSensorListItem(sensor);
+                    }
+                });
+                console.log('✅ 感測器列表警報檢測已啟動');
+            } else {
+                console.warn('⚠️ 警報系統未載入，跳過警報檢測初始化');
+            }
+        }, 1000);
+    }
+    
+    // 初始化感測器圖示
+    function initializeSensorIcons() {
+        document.querySelectorAll('.sensor-list-item').forEach(item => {
+            const sensorType = item.dataset.sensorType;
+            const sensorId = item.dataset.sensorId;
+            const icon = item.querySelector('i');
+            if (icon && sensorType) {
+                const iconClass = getSensorIcon(sensorType);
+                icon.className = iconClass + ' me-2 text-primary';
+            }
+            
+            // 檢查是否有個別配置並添加視覺指示器
+            if (window.sensorAlertSystem && sensorId) {
+                const hasIndividualConfig = window.sensorAlertSystem.getIndividualSensorConfig(sensorId);
+                const configBtn = item.querySelector('.sensor-config-controls .btn');
+                if (configBtn) {
+                    if (hasIndividualConfig) {
+                        configBtn.classList.add('has-individual-config');
+                        configBtn.title = '已設定個別警報配置';
+                    } else {
+                        configBtn.classList.remove('has-individual-config');
+                        configBtn.title = '設定個別警報';
+                    }
+                }
+            }
+        });
+    }
 });
+
+// 個別感測器配置功能
+function openSensorConfigModal(sensorId, description, name, type) {
+    const modal = document.getElementById('sensorConfigModal');
+    const form = document.getElementById('sensorConfigForm');
+    
+    // 設置模態標題
+    document.getElementById('sensorConfigTitle').textContent = `設定感測器警報：${description || name}`;
+    document.getElementById('configSensorId').value = sensorId;
+    document.getElementById('configSensorType').value = type;
+    
+    // 檢查感測器的數值類型
+    const sensor = sensors.find(s => s.id === sensorId);
+    let valueTypes = [];
+    
+    if (sensor && sensor.lastValue && sensor.lastValue.currentValues) {
+        valueTypes = sensor.lastValue.currentValues.map(value => {
+            return {
+                type: window.sensorAlertSystem?.getValueTypeByUnit(value.unit) || 'unknown',
+                unit: value.unit,
+                value: value.value
+            };
+        });
+    }
+    
+    // 載入現有配置
+    loadMultiValueSensorConfig(sensorId, type, valueTypes);
+    
+    // 顯示模態
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+}
+
+function loadMultiValueSensorConfig(sensorId, sensorType, valueTypes) {
+    if (!window.sensorAlertSystem) return;
+    
+    const configContainer = document.getElementById('multiValueConfigContainer');
+    configContainer.innerHTML = '';
+    
+    if (valueTypes.length <= 1) {
+        // 單一數值類型，使用原有的配置方式
+        loadSingleValueConfig(sensorId, sensorType, valueTypes[0]);
+    } else {
+        // 多數值類型，為每個數值類型創建配置區域
+        valueTypes.forEach((valueInfo, index) => {
+            createValueTypeConfigSection(sensorId, valueInfo, index);
+        });
+    }
+}
+
+function loadSingleValueConfig(sensorId, sensorType, valueInfo) {
+    const valueType = valueInfo ? valueInfo.type : sensorType;
+    
+    // 獲取配置
+    let config = window.sensorAlertSystem.getIndividualSensorValueConfig(sensorId, valueType);
+    
+    if (!config) {
+        const defaultConfig = window.sensorAlertSystem.getAlertConfig();
+        config = defaultConfig[valueType] || {
+            min: 0, max: 100,
+            warning: { min: 0, max: 100 },
+            danger: { min: 0, max: 100 },
+            critical: { min: 0, max: 100 }
+        };
+    }
+    
+    // 創建單一配置區域
+    const configContainer = document.getElementById('multiValueConfigContainer');
+    configContainer.innerHTML = `
+        <div class="single-value-config" data-value-type="${valueType}">
+            <h6>${valueInfo ? `${getValueTypeName(valueType)} (${valueInfo.unit})` : sensorType}</h6>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">正常範圍</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control normal-min" value="${config.min || 0}" step="0.1">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control normal-max" value="${config.max || 100}" step="0.1">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">警告範圍</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control warning-min" value="${config.warning.min || 0}" step="0.1">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control warning-max" value="${config.warning.max || 100}" step="0.1">
+                    </div>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">危險範圍</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control danger-min" value="${config.danger.min || 0}" step="0.1">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control danger-max" value="${config.danger.max || 100}" step="0.1">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">臨界範圍</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control critical-min" value="${config.critical.min || 0}" step="0.1">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control critical-max" value="${config.critical.max || 100}" step="0.1">
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function createValueTypeConfigSection(sensorId, valueInfo, index) {
+    const { type, unit, value } = valueInfo;
+    
+    // 獲取該數值類型的配置
+    let config = window.sensorAlertSystem.getIndividualSensorValueConfig(sensorId, type);
+    
+    if (!config) {
+        const defaultConfig = window.sensorAlertSystem.getAlertConfig();
+        config = defaultConfig[type] || {
+            min: 0, max: 100,
+            warning: { min: 0, max: 100 },
+            danger: { min: 0, max: 100 },
+            critical: { min: 0, max: 100 }
+        };
+    }
+    
+    const configContainer = document.getElementById('multiValueConfigContainer');
+    const sectionHTML = `
+        <div class="value-type-config mb-4" data-value-type="${type}">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0">${getValueTypeName(type)} (${unit})</h6>
+                <small class="text-muted">目前數值: ${value}</small>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">正常範圍</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control normal-min" value="${config.min || 0}" step="0.1">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control normal-max" value="${config.max || 100}" step="0.1">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">警告範圍</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control warning-min" value="${config.warning.min || 0}" step="0.1">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control warning-max" value="${config.warning.max || 100}" step="0.1">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">危險範圍</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control danger-min" value="${config.danger.min || 0}" step="0.1">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control danger-max" value="${config.danger.max || 100}" step="0.1">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">臨界範圍</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control critical-min" value="${config.critical.min || 0}" step="0.1">
+                        <span class="input-group-text">至</span>
+                        <input type="number" class="form-control critical-max" value="${config.critical.max || 100}" step="0.1">
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    configContainer.insertAdjacentHTML('beforeend', sectionHTML);
+}
+
+function getValueTypeName(type) {
+    const names = {
+        temperature: '溫度',
+        humidity: '濕度',
+        co2: 'CO2濃度',
+        pressure: '氣壓',
+        wind: '風速',
+        water: '水量',
+        light: '光照',
+        ph: 'pH值',
+        noise: '噪音',
+        unknown: '未知'
+    };
+    
+    return names[type] || type;
+}
+
+function saveSensorConfig() {
+    const sensorId = document.getElementById('configSensorId').value;
+    const configSections = document.querySelectorAll('#multiValueConfigContainer .value-type-config, #multiValueConfigContainer .single-value-config');
+    
+    let hasAnyConfig = false;
+    
+    configSections.forEach(section => {
+        const valueType = section.dataset.valueType;
+        
+        const config = {
+            min: parseFloat(section.querySelector('.normal-min').value),
+            max: parseFloat(section.querySelector('.normal-max').value),
+            warning: {
+                min: parseFloat(section.querySelector('.warning-min').value),
+                max: parseFloat(section.querySelector('.warning-max').value)
+            },
+            danger: {
+                min: parseFloat(section.querySelector('.danger-min').value),
+                max: parseFloat(section.querySelector('.danger-max').value)
+            },
+            critical: {
+                min: parseFloat(section.querySelector('.critical-min').value),
+                max: parseFloat(section.querySelector('.critical-max').value)
+            }
+        };
+        
+        // 驗證配置
+        if (!validateSensorValueConfig(config, valueType)) {
+            return;
+        }
+        
+        // 儲存該數值類型的配置
+        if (window.sensorAlertSystem) {
+            window.sensorAlertSystem.setIndividualSensorValueConfig(sensorId, valueType, config);
+            hasAnyConfig = true;
+        }
+    });
+    
+    if (hasAnyConfig) {
+        // 重新檢查該感測器的警報狀態
+        const sensor = sensors.find(s => s.id === sensorId);
+        if (sensor && sensor.lastValue && sensor.lastValue.currentValues) {
+            updateSensorListItem(sensor);
+        }
+        
+        // 更新配置指示器
+        updateConfigIndicator(sensorId, true);
+        
+        alert('感測器警報配置已儲存！');
+        
+        // 關閉模態
+        const modal = bootstrap.Modal.getInstance(document.getElementById('sensorConfigModal'));
+        modal.hide();
+    }
+}
+
+function resetToDefaultConfig() {
+    const sensorId = document.getElementById('configSensorId').value;
+    const sensorType = document.getElementById('configSensorType').value;
+    
+    // 檢查感測器的數值類型
+    const sensor = sensors.find(s => s.id === sensorId);
+    let valueTypes = [];
+    
+    if (sensor && sensor.lastValue && sensor.lastValue.currentValues) {
+        valueTypes = sensor.lastValue.currentValues.map(value => {
+            return {
+                type: window.sensorAlertSystem?.getValueTypeByUnit(value.unit) || 'unknown',
+                unit: value.unit,
+                value: value.value
+            };
+        });
+    }
+    
+    // 重新載入預設配置
+    loadMultiValueSensorConfig(null, sensorType, valueTypes);
+}
+
+function removeIndividualConfig() {
+    const sensorId = document.getElementById('configSensorId').value;
+    
+    if (confirm('確定要刪除此感測器的個別配置，並使用類型預設配置嗎？')) {
+        if (window.sensorAlertSystem) {
+            window.sensorAlertSystem.removeIndividualSensorConfig(sensorId);
+            
+            // 重新檢查該感測器的警報狀態
+            const sensor = sensors.find(s => s.id === sensorId);
+            if (sensor && sensor.lastValue && sensor.lastValue.currentValues) {
+                updateSensorListItem(sensor);
+            }
+            
+            // 更新配置指示器
+            updateConfigIndicator(sensorId, false);
+            
+            alert('個別配置已刪除！');
+            
+            // 關閉模態
+            const modal = bootstrap.Modal.getInstance(document.getElementById('sensorConfigModal'));
+            modal.hide();
+        }
+    }
+}
+
+function validateSensorValueConfig(config, valueType) {
+    const typeName = getValueTypeName(valueType);
+    
+    // 檢查正常範圍
+    if (config.min >= config.max) {
+        alert(`${typeName} 正常範圍設定錯誤：最小值必須小於最大值`);
+        return false;
+    }
+    
+    // 檢查警告範圍
+    if (config.warning.min >= config.warning.max) {
+        alert(`${typeName} 警告範圍設定錯誤：最小值必須小於最大值`);
+        return false;
+    }
+    
+    // 檢查危險範圍
+    if (config.danger.min >= config.danger.max) {
+        alert(`${typeName} 危險範圍設定錯誤：最小值必須小於最大值`);
+        return false;
+    }
+    
+    // 檢查臨界範圍
+    if (config.critical.min >= config.critical.max) {
+        alert(`${typeName} 臨界範圍設定錯誤：最小值必須小於最大值`);
+        return false;
+    }
+    
+    return true;
+}
+
+function updateConfigIndicator(sensorId, hasConfig) {
+    const listItem = document.querySelector(`[data-sensor-id="${sensorId}"]`);
+    if (listItem) {
+        const configBtn = listItem.querySelector('.sensor-config-controls .btn');
+        if (configBtn) {
+            if (hasConfig) {
+                configBtn.classList.add('has-individual-config');
+                configBtn.title = '已設定個別警報配置';
+            } else {
+                configBtn.classList.remove('has-individual-config');
+                configBtn.title = '設定個別警報';
+            }
+        }
+    }
+}
 </script>
+
+<!-- 個別感測器配置模態對話框 -->
+<div class="modal fade" id="sensorConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sensorConfigTitle">感測器警報配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sensorConfigForm">
+                    <input type="hidden" id="configSensorId">
+                    <input type="hidden" id="configSensorType">
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        此配置僅適用於當前感測器的各個數值類型。如果未設定個別配置，將使用感測器類型的預設配置。
+                    </div>
+                    
+                    <!-- 動態配置容器 -->
+                    <div id="multiValueConfigContainer">
+                        <!-- 配置區域將在這裡動態生成 -->
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger" onclick="removeIndividualConfig()">
+                    <i class="fas fa-trash me-1"></i>刪除個別配置
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="resetToDefaultConfig()">
+                    <i class="fas fa-undo me-1"></i>重置為預設
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveSensorConfig()">
+                    <i class="fas fa-save me-1"></i>儲存配置
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
