@@ -3,6 +3,9 @@ const config = require('../config');
 const Farm = require('../models/Farm');
 const { getUnitByCode } = require('../unit');
 
+//disable console.log
+console.log = function() {};
+
 class MQTTClient {
     constructor() {
         this.client = null;
