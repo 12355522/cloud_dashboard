@@ -139,45 +139,50 @@ class ONVIFService {
      */
     async connectCamera(ip, port, username, password) {
         return new Promise((resolve, reject) => {
-            const cam = new onvif.Cam({
-                hostname: ip,
-                username: username,
-                password: password,
-                port: port || 80,
-                timeout: 5000
-            }, (err) => {
-                if (err) {
-                    console.error(`❌ 連接攝影機失敗 ${ip}:`, err.message);
-                    reject(err);
-                    return;
-                }
-
-                console.log(`✅ 成功連接攝影機 ${ip}`);
-                
-                // 獲取攝影機資訊
-                cam.getDeviceInformation((err, info) => {
+            try {
+                const cam = new onvif.Cam({
+                    hostname: ip,
+                    username: username,
+                    password: password,
+                    port: port || 80,
+                    timeout: 5000
+                }, (err) => {
                     if (err) {
-                        console.warn('無法獲取設備資訊:', err.message);
+                        console.error(`❌ 連接攝影機失敗 ${ip}:`, err.message);
+                        reject(err);
+                        return;
                     }
-                    
-                    const cameraData = {
-                        ip: ip,
-                        port: port,
-                        username: username,
-                        password: password,
-                        cam: cam,
-                        info: info || {},
-                        profiles: [],
-                        streamUri: null,
-                        snapshotUri: null,
-                        connected: true,
-                        lastUpdate: new Date()
-                    };
 
-                    this.cameras.set(ip, cameraData);
-                    resolve(cameraData);
+                    console.log(`✅ 成功連接攝影機 ${ip}`);
+                    
+                    // 獲取攝影機資訊
+                    cam.getDeviceInformation((err, info) => {
+                        if (err) {
+                            console.warn('無法獲取設備資訊:', err.message);
+                        }
+                        
+                        const cameraData = {
+                            ip: ip,
+                            port: port,
+                            username: username,
+                            password: password,
+                            cam: cam,
+                            info: info || {},
+                            profiles: [],
+                            streamUri: null,
+                            snapshotUri: null,
+                            connected: true,
+                            lastUpdate: new Date()
+                        };
+
+                        this.cameras.set(ip, cameraData);
+                        resolve(cameraData);
+                    });
                 });
-            });
+            } catch (error) {
+                console.error(`❌ 創建ONVIF攝影機實例失敗 ${ip}:`, error.message);
+                reject(error);
+            }
         });
     }
 
