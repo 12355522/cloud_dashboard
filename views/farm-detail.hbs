@@ -173,14 +173,14 @@
                             <div class="flex-grow-1">
                                 <div class="d-flex align-items-center mb-2">
                                     <i class="{{this.type}}Icon me-2 text-primary"></i>
-                                    <div>
-                                        {{#if this.description}}
+                        <div>
+                            {{#if this.description}}
                                         <strong class="sensor-list-name">{{this.description}}</strong>
-                                        <br>
-                                        <small class="text-muted">類型名稱: {{this.name}}</small>
-                                        {{else}}
+                            <br>
+                            <small class="text-muted">類型名稱: {{this.name}}</small>
+                            {{else}}
                                         <strong class="sensor-list-name">{{this.name}}</strong>
-                                        {{/if}}
+                            {{/if}}
                                     </div>
                                 </div>
                                 
@@ -203,8 +203,8 @@
                                         <span class="badge bg-secondary">離線</span>
                                         <small class="text-muted ms-2">無最新數據</small>
                                     </div>
-                                    {{/if}}
-                                </div>
+                            {{/if}}
+                        </div>
                                 
                                 <div class="sensor-meta-info mt-2">
                                     <small class="text-muted">
@@ -215,7 +215,7 @@
                                 </div>
                             </div>
                             
-                            <div class="text-end">
+                        <div class="text-end">
                                 <div class="sensor-status-indicator mb-2">
                                     <span class="badge {{statusBadge this.status}} rounded-pill">{{this.status}}</span>
                                 </div>

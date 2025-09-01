@@ -268,7 +268,7 @@ class MQTTClient {
             }
 
             // 如果是個別感測器數值訊息 (device/deviceName/sensorId)
-            if (topicParts.length === 3 && !['nodeinf', 'seninf', 'deviceinf'].includes(topicParts[2])) {
+            if (topicParts.length === 3 && !['nodeinf', 'seninf', 'deviceinf' , 'feeding'].includes(topicParts[2])) {
                 const deviceName = topicParts[1];
                 const sensorId = topicParts[2];
                 
