@@ -401,6 +401,13 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             
             console.log('📝 表單資料:', formData);
+            
+            // 驗證輸入
+            if (!formData.ip) {
+                showToast('error', '請輸入攝影機IP位址');
+                return;
+            }
+            
             showOnvifLoading('連接攝影機中...');
             
             try {
@@ -414,12 +421,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 
                 console.log('📡 收到回應:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
                 console.log('📋 回應內容:', result);
                 
                 if (result.success) {
                     showToast('success', '攝影機連接成功');
                     
+                    // 關閉模態框
                     const addCameraModal = document.getElementById('addCameraModal');
                     if (addCameraModal) {
                         if (typeof bootstrap !== 'undefined') {
@@ -435,10 +448,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
                     
-                    const addCameraForm = document.getElementById('addCameraForm');
-                    if (addCameraForm) {
-                        addCameraForm.reset();
-                    }
+                    // 重置表單
+                    addCameraForm.reset();
                     
                     // 更新攝影機列表
                     setTimeout(() => {
@@ -489,7 +500,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (error) {
                 console.error('❌ 連接攝影機錯誤:', error);
-                showToast('error', '連接攝影機失敗');
+                showToast('error', `連接攝影機失敗: ${error.message}`);
+                
+                // 顯示網路錯誤詳情
+                const errorDetails = document.createElement('div');
+                errorDetails.className = 'alert alert-danger mt-3';
+                errorDetails.innerHTML = `
+                    <h6>網路連接錯誤:</h6>
+                    <p><strong>錯誤:</strong> ${error.message}</p>
+                    <p><strong>攝影機:</strong> ${formData.ip}:${formData.port}</p>
+                    <p><strong>建議:</strong></p>
+                    <ul>
+                        <li>檢查網路連接是否正常</li>
+                        <li>確認攝影機IP位址是否正確</li>
+                        <li>檢查防火牆設定</li>
+                        <li>嘗試使用 test-cameras.bat 測試連接</li>
+                    </ul>
+                `;
+                
+                const modalBody = document.querySelector('#addCameraModal .modal-body');
+                if (modalBody) {
+                    const existingError = modalBody.querySelector('.alert-danger');
+                    if (existingError) {
+                        existingError.remove();
+                    }
+                    modalBody.appendChild(errorDetails);
+                }
             } finally {
                 hideOnvifLoading();
             }
