@@ -9,6 +9,9 @@
                 <button class="btn btn-info me-2" onclick="showTestConnectionModal()">
                     <i class="fas fa-network-wired me-1"></i>測試連接
                 </button>
+                <button class="btn btn-warning me-2" data-bs-toggle="modal" data-bs-target="#batchConnectModal">
+                    <i class="fas fa-link me-1"></i>批量連接
+                </button>
                 <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCameraModal">
                     <i class="fas fa-plus me-1"></i>手動新增
                 </button>
@@ -275,6 +278,58 @@
                     <i class="fas fa-download me-1"></i>下載
                 </a>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量連接模態框 -->
+<div class="modal fade" id="batchConnectModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">批量連接攝影機</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="batchConnectForm">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        將使用相同的認證資訊連接所有已發現的攝影機
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="batchUsername" class="form-label">使用者名稱</label>
+                        <input type="text" class="form-control" id="batchUsername" 
+                               placeholder="攝影機登入帳號" value="admin">
+                    </div>
+                    <div class="mb-3">
+                        <label for="batchPassword" class="form-label">密碼</label>
+                        <input type="password" class="form-control" id="batchPassword" 
+                               placeholder="攝影機登入密碼">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>將要連接的攝影機：</h6>
+                        <div id="batchCameraList" class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                            <!-- 動態填充攝影機列表 -->
+                        </div>
+                    </div>
+                    
+                    <div id="batchProgress" class="d-none">
+                        <h6>連接進度：</h6>
+                        <div class="progress mb-2">
+                            <div id="batchProgressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div id="batchStatus">準備開始...</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-link me-1"></i>開始批量連接
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -958,6 +1013,160 @@ function updateSnapshotCount() {
     if (element) {
         const count = document.querySelectorAll('.snapshot-preview').length;
         element.textContent = count;
+    }
+}
+
+// 批量連接功能
+let discoveredCameras = [];
+
+// 顯示批量連接模態框時，載入攝影機列表
+document.addEventListener('DOMContentLoaded', function() {
+    const batchConnectModal = document.getElementById('batchConnectModal');
+    if (batchConnectModal) {
+        batchConnectModal.addEventListener('show.bs.modal', async function() {
+            await loadBatchCameraList();
+        });
+    }
+    
+    // 綁定批量連接表單
+    const batchConnectForm = document.getElementById('batchConnectForm');
+    if (batchConnectForm) {
+        batchConnectForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await startBatchConnect();
+        });
+    }
+});
+
+// 載入批量連接的攝影機列表
+async function loadBatchCameraList() {
+    try {
+        console.log('🔍 載入批量連接攝影機列表...');
+        
+        const response = await fetch('/api/onvif/discover', {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.cameras) {
+            discoveredCameras = result.cameras.filter(cam => !cam.connected);
+            
+            const batchCameraList = document.getElementById('batchCameraList');
+            if (batchCameraList) {
+                if (discoveredCameras.length === 0) {
+                    batchCameraList.innerHTML = '<div class="text-muted text-center py-3">沒有發現未連接的攝影機</div>';
+                } else {
+                    batchCameraList.innerHTML = discoveredCameras.map((cam, index) => `
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="${cam.ip}" id="cam_${index}" checked>
+                            <label class="form-check-label" for="cam_${index}">
+                                ${cam.ip}:${cam.port || 80}
+                                ${cam.hostname ? `(${cam.hostname})` : ''}
+                            </label>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('載入攝影機列表失敗:', error);
+        showToast('error', '載入攝影機列表失敗');
+    }
+}
+
+// 開始批量連接
+async function startBatchConnect() {
+    const username = document.getElementById('batchUsername').value;
+    const password = document.getElementById('batchPassword').value;
+    
+    if (!username || !password) {
+        showToast('error', '請輸入用戶名和密碼');
+        return;
+    }
+    
+    // 獲取選中的攝影機
+    const selectedCameras = [];
+    const checkboxes = document.querySelectorAll('#batchCameraList input[type="checkbox"]:checked');
+    checkboxes.forEach(checkbox => {
+        const camera = discoveredCameras.find(cam => cam.ip === checkbox.value);
+        if (camera) {
+            selectedCameras.push(camera);
+        }
+    });
+    
+    if (selectedCameras.length === 0) {
+        showToast('error', '請選擇要連接的攝影機');
+        return;
+    }
+    
+    console.log(`🚀 開始批量連接 ${selectedCameras.length} 台攝影機`);
+    
+    // 顯示進度條
+    const batchProgress = document.getElementById('batchProgress');
+    const batchProgressBar = document.getElementById('batchProgressBar');
+    const batchStatus = document.getElementById('batchStatus');
+    
+    batchProgress.classList.remove('d-none');
+    
+    let successCount = 0;
+    let failureCount = 0;
+    
+    for (let i = 0; i < selectedCameras.length; i++) {
+        const camera = selectedCameras[i];
+        const progress = Math.round(((i + 1) / selectedCameras.length) * 100);
+        
+        batchProgressBar.style.width = `${progress}%`;
+        batchStatus.textContent = `正在連接 ${camera.ip} (${i + 1}/${selectedCameras.length})...`;
+        
+        try {
+            console.log(`🔗 連接攝影機 ${i + 1}/${selectedCameras.length}: ${camera.ip}`);
+            
+            const response = await fetch('/api/onvif/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ip: camera.ip,
+                    port: camera.port || 80,
+                    username: username,
+                    password: password
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                successCount++;
+                console.log(`✅ 攝影機 ${camera.ip} 連接成功`);
+            } else {
+                failureCount++;
+                console.log(`❌ 攝影機 ${camera.ip} 連接失敗:`, result.error);
+            }
+        } catch (error) {
+            failureCount++;
+            console.error(`❌ 攝影機 ${camera.ip} 連接異常:`, error);
+        }
+        
+        // 每連接一台攝影機後稍微等待
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    // 完成
+    batchStatus.textContent = `批量連接完成！成功: ${successCount}, 失敗: ${failureCount}`;
+    
+    if (successCount > 0) {
+        showToast('success', `批量連接完成！成功連接 ${successCount} 台攝影機`);
+        
+        // 更新攝影機列表
+        setTimeout(() => {
+            updateCameraList();
+        }, 2000);
+    }
+    
+    if (failureCount > 0) {
+        showToast('warning', `有 ${failureCount} 台攝影機連接失敗，請檢查認證資訊`);
     }
 }
 

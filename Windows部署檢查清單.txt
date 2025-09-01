@@ -1,0 +1,107 @@
+==========================================
+    畜牧業管理系統 - Windows部署檢查清單
+==========================================
+
+📋 部署前準備
+□ Windows 10/11 或 Windows Server
+□ 管理員權限
+□ 網路連接正常
+□ 攝影機在同一網段
+
+🚀 部署步驟
+
+1️⃣ 初始部署
+□ 右鍵點擊 deploy-windows.bat
+□ 選擇「以管理員身份運行」
+□ 等待Node.js依賴安裝完成
+□ 等待FFmpeg自動下載安裝
+□ 等待MongoDB安裝（如需要）
+
+2️⃣ 系統啟動
+□ 運行 start-windows.bat
+□ 看到「系統將在 http://localhost:3000 啟動」
+□ 瀏覽器打開 http://localhost:3000
+□ 確認頁面正常載入
+
+3️⃣ 攝影機設定
+□ 訪問 http://localhost:3000/onvif-cameras
+□ 點擊「搜尋攝影機」按鈕
+□ 確認發現攝影機數量（如32台）
+□ 運行 test-cameras.bat 測試網路連接
+□ 運行 setup-cameras.bat 批量連接
+
+4️⃣ 功能驗證
+□ 攝影機狀態從「已發現」變為「已連接」
+□ 點擊攝影機卡片的「快照」按鈕
+□ 確認快照功能正常
+□ 測試串流播放（需要FFmpeg）
+
+🔧 故障排除
+
+❌ 如果Node.js安裝失敗
+□ 手動下載：https://nodejs.org/
+□ 安裝LTS版本
+□ 重新運行 deploy-windows.bat
+
+❌ 如果FFmpeg安裝失敗
+□ 檢查網路連接
+□ 手動下載到 ffmpeg 資料夾
+□ 確保 ffmpeg\bin\ffmpeg.exe 存在
+
+❌ 如果MongoDB連接失敗
+□ 運行 install-mongodb-windows.bat
+□ 或手動安裝MongoDB Community Edition
+□ 確認服務運行：net start MongoDB
+
+❌ 如果攝影機無法連接
+□ 確認IP位址正確
+□ 檢查用戶名密碼（通常是admin/密碼）
+□ 確認攝影機支援ONVIF
+□ 檢查防火牆設定
+
+❌ 如果串流無法播放
+□ 確認FFmpeg安裝正確
+□ 檢查攝影機RTSP支援
+□ 確認網路頻寬充足
+
+📊 系統狀態檢查
+
+✅ 服務運行正常
+□ 瀏覽器可以訪問 http://localhost:3000
+□ 攝影機管理頁面載入正常
+□ 可以看到系統狀態（已連接攝影機數量）
+
+✅ 攝影機功能正常
+□ 搜尋功能：能發現網路中的攝影機
+□ 連接功能：能成功連接攝影機
+□ 快照功能：能拍攝並顯示快照
+□ 串流功能：能播放即時影像
+
+✅ 資料存儲正常
+□ MongoDB服務運行
+□ 快照文件保存到 public\snapshots
+□ 串流文件保存到 public\streams
+
+🎯 完成部署
+
+恭喜！您已成功部署畜牧業管理系統
+
+📍 重要連結：
+- 系統主頁：http://localhost:3000
+- 攝影機管理：http://localhost:3000/onvif-cameras
+- 場域管理：http://localhost:3000/farms
+- 警報演示：http://localhost:3000/alert-demo
+
+🔄 日常操作：
+- 啟動系統：運行 start-windows.bat
+- 設定攝影機：運行 setup-cameras.bat
+- 測試連接：運行 test-cameras.bat
+
+📞 技術支援：
+- 檢查日誌：deploy.log
+- 重啟MongoDB：net restart MongoDB
+- 重啟應用：Ctrl+C 後重新運行
+
+==========================================
+           🎉 部署完成！
+==========================================
