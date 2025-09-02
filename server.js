@@ -621,6 +621,18 @@ app.get('/api/farms/list', async (req, res) => {
     }
 });
 
+// [API] 獲取分配給特定場域的攝影機列表 (新)
+app.get('/api/farms/:id/cameras', (req, res) => {
+    try {
+        const { id } = req.params;
+        const allDevices = onvifService.getDevices();
+        const farmCameras = allDevices.filter(d => d.farmId === id && d.status === 'saved');
+        res.json({ success: true, cameras: farmCameras });
+    } catch (error) {
+        res.status(500).json({ success: false, error: '無法獲取場域攝影機列表' });
+    }
+});
+
 // [API] 更新場域的輪播攝影機設定 (新)
 app.post('/api/farms/:id/carousel-cameras', async (req, res) => {
     try {
