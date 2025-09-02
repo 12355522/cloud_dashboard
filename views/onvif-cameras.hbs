@@ -557,8 +557,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // 額外 click 偵測（診斷用途），避免被其他腳本攔截
     const assignSubmitBtn = assignFarmForm ? assignFarmForm.querySelector('button[type="submit"]') : null;
     if (assignSubmitBtn) {
-        assignSubmitBtn.addEventListener('click', (ev) => {
+        assignSubmitBtn.addEventListener('click', async (ev) => {
             console.log('[AssignFarm] submit button clicked');
+            // 若原生驗證阻擋了 submit，改用手動流程
+            try {
+                const ip = document.getElementById('assign-ip').value;
+                const farmSelect = document.getElementById('farm-select');
+                const selectedOption = farmSelect && farmSelect.options[farmSelect.selectedIndex];
+                const farmId = selectedOption ? selectedOption.value : '';
+                const farmName = selectedOption ? selectedOption.getAttribute('data-name') : '';
+
+                if (!farmId) {
+                    console.warn('[AssignFarm] no farm selected');
+                    // 讓原 submit 有機會執行，僅在未選擇時阻擋
+                    ev.preventDefault();
+                    showToast('error', '請選擇一個有效的場域');
+                    return;
+                }
+
+                // 阻擋原生 submit，直接執行流程
+                ev.preventDefault();
+                const submitBtn = assignFarmForm.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>分配中...`;
+
+                console.log('[AssignFarm] forced submit flow', { ip, farmId, farmName });
+                const success = await handleAssignFarm(ip, farmId, farmName);
+                console.log('[AssignFarm] forced flow done', { success });
+
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                if (success) {
+                    assignFarmModal.hide();
+                }
+            } catch (err) {
+                console.error('[AssignFarm] forced flow error', err);
+            }
         }, true);
     }
 
