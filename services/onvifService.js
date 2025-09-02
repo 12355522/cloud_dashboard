@@ -236,8 +236,21 @@ class ONVIFService {
         const outputDir = path.join(__dirname, '../public/streams', ip);
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
+        } else {
+            // 清理舊的串流檔案
+            try {
+                const files = fs.readdirSync(outputDir);
+                for (const file of files) {
+                    if (file.endsWith('.ts') || file.endsWith('.m3u8')) {
+                        fs.unlinkSync(path.join(outputDir, file));
+                    }
+                }
+            } catch (e) {
+                console.warn(`清理舊串流檔案時出錯 for ${ip}:`, e.message);
+            }
         }
         const playlistPath = path.join(outputDir, 'playlist.m3u8');
+        const playlistUrl = `/streams/${ip}/playlist.m3u8`;
 
         return new Promise((resolve, reject) => {
             const ffmpegProcess = ffmpeg(device.streamUri)
@@ -270,9 +283,32 @@ class ONVIFService {
                 .on('end', () => console.log(`✅ 串流轉換結束: ${ip}`));
 
             ffmpegProcess.run();
-            this.streams.set(ip, { process: ffmpegProcess, playlistPath: `/streams/${ip}/playlist.m3u8` });
-            // 增加延遲，給FFmpeg足夠的時間生成第一個播放列表檔案
-            setTimeout(() => resolve({ playlistUrl: `/streams/${ip}/playlist.m3u8`, status: 'streaming' }), 5000); // <--- 從 3 秒增加到 5 秒
+            this.streams.set(ip, { process: ffmpegProcess, playlistPath: playlistUrl });
+            
+            // **全新邏輯**：輪詢檢查播放列表檔案是否已生成
+            const checkInterval = 500; // 每 0.5 秒檢查一次
+            const timeout = 15000; // 15 秒超時
+            let elapsedTime = 0;
+
+            const checkFile = setInterval(() => {
+                fs.access(playlistPath, fs.constants.F_OK, (err) => {
+                    if (!err) {
+                        // 檔案已存在，成功！
+                        clearInterval(checkFile);
+                        console.log(`✅ 播放列表 for ${ip} 已生成，通知前端播放。`);
+                        resolve({ playlistUrl: playlistUrl, status: 'streaming' });
+                    } else {
+                        // 檔案不存在，繼續等待
+                        elapsedTime += checkInterval;
+                        if (elapsedTime >= timeout) {
+                            clearInterval(checkFile);
+                            console.error(`❌ 啟動串流超時: ${timeout / 1000} 秒後仍未找到 ${ip} 的播放列表。`);
+                            this.stopStreamConversion(ip); // 終止無效的 ffmpeg 程序
+                            reject(new Error('啟動串流超時，FFmpeg未能生成播放列表'));
+                        }
+                    }
+                });
+            }, checkInterval);
         });
     }
 
@@ -286,6 +322,7 @@ class ONVIFService {
         }
         const outputDir = path.join(__dirname, '../public/streams', ip);
         const playlistPath = path.join(outputDir, 'playlist.m3u8');
+        const playlistUrl = `/streams/${ip}/playlist.m3u8`;
 
         return new Promise((resolve, reject) => {
             const ffmpegProcess = ffmpeg(device.streamUri)
@@ -302,8 +339,30 @@ class ONVIFService {
                 .on('end', () => console.log(`✅ [Re-encode] 串流轉換結束: ${ip}`));
 
             ffmpegProcess.run();
-            this.streams.set(ip, { process: ffmpegProcess, playlistPath: `/streams/${ip}/playlist.m3u8` });
-            setTimeout(() => resolve({ playlistUrl: `/streams/${ip}/playlist.m3u8`, status: 'streaming' }), 5000); // 重新編碼需要更長啟動時間
+            this.streams.set(ip, { process: ffmpegProcess, playlistPath: playlistUrl });
+            
+            // **全新邏輯**：輪詢檢查播放列表檔案是否已生成
+            const checkInterval = 500;
+            const timeout = 20000; // 重新編碼可能需要更長時間
+            let elapsedTime = 0;
+
+            const checkFile = setInterval(() => {
+                fs.access(playlistPath, fs.constants.F_OK, (err) => {
+                    if (!err) {
+                        clearInterval(checkFile);
+                        console.log(`✅ [Re-encode] 播放列表 for ${ip} 已生成，通知前端播放。`);
+                        resolve({ playlistUrl: playlistUrl, status: 'streaming' });
+                    } else {
+                        elapsedTime += checkInterval;
+                        if (elapsedTime >= timeout) {
+                            clearInterval(checkFile);
+                            console.error(`❌ [Re-encode] 啟動串流超時: ${timeout / 1000} 秒後仍未找到 ${ip} 的播放列表。`);
+                            this.stopStreamConversion(ip);
+                            reject(new Error('啟動串流超時 (重新編碼)'));
+                        }
+                    }
+                });
+            }, checkInterval);
         });
     }
 
