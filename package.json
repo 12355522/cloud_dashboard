@@ -12,6 +12,7 @@
     "test-camera": "node test-camera-node.js"
   },
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "aedes": "^0.51.3",
     "aedes-server-factory": "^0.2.1",
     "body-parser": "^1.20.2",

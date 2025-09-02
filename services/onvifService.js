@@ -2,32 +2,10 @@ const onvif = require('onvif');
 const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
 const fs = require('fs');
-const config = require('../config'); // 引入設定檔
 
-// --- START: FFmpeg 路徑智慧偵測 ---
-// 1. 從環境變數或設定檔讀取
-let ffmpegPath = config.ffmpeg.path || process.env.FFMPEG_PATH;
-
-// 2. 如果路徑未設定，則嘗試偵測本地安裝
-if (!ffmpegPath) {
-    const localFfmpegPaths = [
-        path.join(__dirname, '..', 'ffmpeg', 'bin', 'ffmpeg.exe'), // Windows
-        path.join(__dirname, '..', 'ffmpeg', 'bin', 'ffmpeg'),   // Linux/macOS
-        path.join(process.cwd(), 'ffmpeg', 'bin', 'ffmpeg.exe'), // Windows (從專案根目錄)
-        path.join(process.cwd(), 'ffmpeg', 'bin', 'ffmpeg')      // Linux/macOS (從專案根目錄)
-    ];
-    ffmpegPath = localFfmpegPaths.find(p => fs.existsSync(p));
-}
-
-// 3. 設定 FFmpeg 路徑 (如果找到)
-if (ffmpegPath && fs.existsSync(ffmpegPath)) {
-    ffmpeg.setFfmpegPath(ffmpegPath);
-    console.log(`✅ FFmpeg 路徑已成功設定為: ${ffmpegPath}`);
-} else {
-    console.warn(`⚠️ 未能自動偵測到 FFmpeg 路徑。串流功能將依賴於系統環境變數 PATH。`);
-    console.warn(`   如果串流失敗，請確認 FFmpeg 已安裝或在 config.js 中設定其絕對路徑。`);
-}
-// --- END: FFmpeg 路徑智慧偵測 ---
+// 新增：明確指定FFmpeg路徑
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 新增：持久化儲存路徑
 const DEVICES_FILE = path.join(__dirname, 'onvif-devices.json');
