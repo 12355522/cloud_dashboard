@@ -339,8 +339,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const handleAssignFarm = async (ip, farmId, farmName) => {
+        console.log('[AssignFarm] start', { ip, farmId, farmName });
         try {
             const res = await api.post(`/api/onvif/devices/${ip}/assign-farm`, { farmId, farmName });
+            console.log('[AssignFarm] response', res);
             if (res.success) {
                 showToast('success', res.message);
                 loadDevices(); // 分配成功後重新載入列表以更新資訊
@@ -350,6 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false; // 回傳失敗狀態
             }
         } catch (e) {
+            console.error('[AssignFarm] network error', e);
             showToast('error', '分配場域時發生網路錯誤');
             return false; // 回傳失敗狀態
         }
@@ -557,9 +560,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const originalBtnText = submitBtn.innerHTML;
         submitBtn.disabled = true;
         submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>分配中...`;
-
+        console.log('[AssignFarm] submit', { ip, farmId, farmName });
         const success = await handleAssignFarm(ip, farmId, farmName);
-
+        console.log('[AssignFarm] done', { success });
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
 
