@@ -124,7 +124,9 @@ class ONVIFService {
 
         const deviceData = {
             ip, port, username, password,
-            cam, info: {}, profiles: [], streamUri: null, snapshotUri: null,
+            farmId: null, // 新增：場域ID
+            farmName: '未分配', // 新增：場域名稱
+            cam: cam, info: {}, profiles: [], streamUri: null, snapshotUri: null,
             connected: true, lastUpdate: new Date(), saved: true
         };
 
@@ -168,6 +170,21 @@ class ONVIFService {
         
         const { cam: camInstance, ...deviceToReturn } = deviceData;
         return deviceToReturn;
+    }
+
+    /**
+     * 為攝影機分配場域
+     */
+    assignFarm(ip, farmId, farmName) {
+        if (this.devices.has(ip)) {
+            const device = this.devices.get(ip);
+            device.farmId = farmId;
+            device.farmName = farmName;
+            this.saveDevices();
+            console.log(`✅ 攝影機 ${ip} 已成功分配至場域 ${farmName} (${farmId})`);
+            return true;
+        }
+        return false;
     }
 
     /**

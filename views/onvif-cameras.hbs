@@ -59,11 +59,18 @@
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2><i class="fas fa-video me-2"></i>ONVIF 攝影機管理</h2>
-            <button id="discover-btn" class="btn btn-primary">
-                <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
-                <i class="fas fa-search me-1"></i>
-                探索區域網路攝影機
+            <div>
+                <button id="add-all-btn" class="btn btn-success me-2 d-none">
+                    <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+                    <i class="fas fa-plus-circle me-1"></i>
+                    全部新增
                 </button>
+                <button id="discover-btn" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+                    <i class="fas fa-search me-1"></i>
+                    探索區域網路攝影機
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -148,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cameraGrid = document.getElementById('camera-grid');
     const discoverBtn = document.getElementById('discover-btn');
+    const addAllBtn = document.getElementById('add-all-btn');
     const loadingSkeleton = document.getElementById('loading-skeleton');
     const emptyState = document.getElementById('empty-state');
     
@@ -176,6 +184,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const render = (devices) => {
         cameraGrid.innerHTML = '';
+        
+        const discoveredDevices = devices.filter(d => d.status === 'discovered');
+        if (discoveredDevices.length > 0) {
+            addAllBtn.classList.remove('d-none');
+        } else {
+            addAllBtn.classList.add('d-none');
+        }
+
         if (devices.length === 0) {
             emptyState.classList.remove('d-none');
             return;
@@ -211,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await api.post('/api/onvif/discover');
             if (res.success) {
                 render(res.devices);
-                showToast('success', `探索完成，找到 ${res.devices.length} 台設備`);
+                showToast('success', `探索完成，共找到 ${res.devices.length} 台設備`);
             } else {
                 showToast('error', res.error);
             }
@@ -220,6 +236,45 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             setButtonLoading(discoverBtn, false);
         }
+    };
+
+    const handleAddAll = async () => {
+        const res = await api.get('/api/onvif/devices');
+        if (!res.success) {
+            showToast('error', '無法獲取設備列表');
+            return;
+        }
+
+        const discoveredDevices = res.devices.filter(d => d.status === 'discovered');
+        if (discoveredDevices.length === 0) {
+            showToast('info', '沒有可新增的攝影機');
+            return;
+        }
+
+        if (!confirm(`確定要將 ${discoveredDevices.length} 台新發現的攝影機全部新增至系統嗎？`)) return;
+
+        setButtonLoading(addAllBtn, true);
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const device of discoveredDevices) {
+            try {
+                const addRes = await api.post('/api/onvif/devices', { ip: device.ip, port: device.port, username: 'admin', password: '' });
+                if (addRes.success) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                    showToast('error', `新增 ${device.ip} 失敗: ${addRes.error}`);
+                }
+            } catch (e) {
+                errorCount++;
+                showToast('error', `新增 ${device.ip} 時發生網路錯誤`);
+            }
+        }
+
+        showToast('success', `批量新增完成！成功 ${successCount} 台，失敗 ${errorCount} 台。`);
+        setButtonLoading(addAllBtn, false);
+        loadDevices();
     };
     
     const handleAddDevice = async (ip, port, username, password) => {
@@ -395,6 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
 
     discoverBtn.addEventListener('click', handleDiscover);
+    addAllBtn.addEventListener('click', handleAddAll);
     
     addDeviceForm.addEventListener('submit', (e) => {
         e.preventDefault();
