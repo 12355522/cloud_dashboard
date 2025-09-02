@@ -1,70 +1,41 @@
 <div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1>
-                    <i class="fas fa-map-marker-alt me-2"></i>{{farm.name}}
-                </h1>
-                <p class="text-muted mb-0">IP: <code>{{farm.ip}}</code></p>
-            </div>
-            <div>
-                <a href="/farms/{{farm.id}}/edit" class="btn btn-outline-primary me-2">
+    <!-- 基本資訊 -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>基本資訊</h5>
+                <a href="/farms/{{farm._id}}/edit" class="btn btn-sm btn-outline-primary">
                     <i class="fas fa-edit me-1"></i>編輯
                 </a>
-                <a href="/farms" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left me-1"></i>返回列表
-                </a>
+            </div>
+            <div class="card-body">
+                <p><strong>IP 位址:</strong> {{farm.ip}}</p>
+                <p><strong>狀態:</strong> <span class="badge {{statusBadge farm.status}}">{{farm.status}}</span></p>
+                <p><strong>建立時間:</strong> {{formatDate farm.created_at}}</p>
+                <p><strong>最後更新:</strong> {{formatDate farm.updated_at}}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 即時影像輪播 (新) -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-sync-alt me-2"></i>即時影像輪播</h5>
+            </div>
+            <div class="card-body p-0 d-flex align-items-center justify-content-center">
+                <div id="camera-carousel-container" style="width: 100%; height: 100%;">
+                    <!-- 輪播元件將插入此處 -->
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 統計卡片 -->
-<div class="row mb-4">
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card bg-primary text-white">
-            <div class="card-body text-center">
-                <i class="fas fa-calendar-alt fa-2x mb-2"></i>
-                <h4 class="mb-0">{{farm.stats.feeding_days}}</h4>
-                <small>飼養天數</small>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card bg-success text-white">
-            <div class="card-body text-center">
-                <i class="fas fa-feather-alt fa-2x mb-2"></i>
-                <h4 class="mb-0">{{farm.stats.animal_count}}</h4>
-                <small>飼養數量 (隻)</small>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card bg-info text-white">
-            <div class="card-body text-center">
-                <i class="fas fa-tint fa-2x mb-2"></i>
-                <h4 class="mb-0">{{farm.stats.water_consumption}}</h4>
-                <small>飲水量 (公升)</small>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card bg-warning text-white">
-            <div class="card-body text-center">
-                <i class="fas fa-fan fa-2x mb-2"></i>
-                <h4 class="mb-0">{{farm.stats.fan_count}}</h4>
-                <small>風扇數量 (台)</small>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- 場域佈局管理 -->
 <div class="row">
-    <div class="col-12">
+    <!-- 場域佈局 -->
+    <div class="col-lg-12 mb-4">
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -149,137 +120,31 @@
     </div>
 </div>
 
-<!-- 感測器和設備列表 -->
-<div class="row mt-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0">
-                    <i class="fas fa-thermometer-half me-2"></i>感測器列表
-                </h6>
-                <div>
-
-                    <a href="/alert-demo" class="btn btn-sm btn-outline-info" title="警報演示">
-                        <i class="fas fa-play-circle"></i>
-                    </a>
-                </div>
-            </div>
-            <div class="card-body">
-                {{#if farm.sensors}}
-                <div class="list-group" id="sensor-list-container">
-                    {{#each farm.sensors}}
-                    <div class="list-group-item sensor-list-item" data-sensor-id="{{this.id}}" data-sensor-type="{{this.type}}">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <div class="d-flex align-items-center mb-2">
-                                    <i class="{{this.type}}Icon me-2 text-primary"></i>
-                        <div>
-                            {{#if this.description}}
-                                        <strong class="sensor-list-name">{{this.description}}</strong>
-                            <br>
-                            <small class="text-muted">類型名稱: {{this.name}}</small>
-                            {{else}}
-                                        <strong class="sensor-list-name">{{this.name}}</strong>
-                            {{/if}}
-                                    </div>
-                                </div>
-                                
-                                <!-- 感測器數值顯示區域 -->
-                                <div class="sensor-values-container">
-                                    {{#if this.lastValue.currentValues}}
-                                    <div class="sensor-values-list">
-                                        {{#each this.lastValue.currentValues}}
-                                        <div class="sensor-value-badge" data-value="{{this.value}}" data-unit="{{this.unit}}">
-                                            <span class="value">{{this.value}}</span>
-                                            <span class="unit">{{this.unit}}</span>
-                                        </div>
-                                        {{/each}}
-                                    </div>
-                                    <small class="text-muted d-block mt-1">
-                                        更新時間: {{formatDate this.lastValue.timestamp}}
-                                    </small>
-                                    {{else}}
-                                    <div class="sensor-offline-status">
-                                        <span class="badge bg-secondary">離線</span>
-                                        <small class="text-muted ms-2">無最新數據</small>
-                                    </div>
-                            {{/if}}
-                        </div>
-                                
-                                <div class="sensor-meta-info mt-2">
-                                    <small class="text-muted">
-                                        類型: {{this.type}} | 
-                                        {{#if this.deviceName}}設備: {{this.deviceName}} | {{/if}}
-                                        位置: ({{this.x}}, {{this.y}})
-                                    </small>
-                                </div>
-                            </div>
-                            
-                        <div class="text-end">
-                                <div class="sensor-status-indicator mb-2">
-                                    <span class="badge {{statusBadge this.status}} rounded-pill">{{this.status}}</span>
-                                </div>
-                                <!-- 警報狀態顯示區域 -->
-                                <div class="alert-status-indicator" style="display: none;">
-                                    <div class="alert-level-badge"></div>
-                                </div>
-                                <!-- 個別警報配置按鈕 -->
-                                <div class="sensor-config-controls mt-2">
-                                    <button class="btn btn-sm btn-outline-secondary" 
-                                            onclick="openSensorConfigModal('{{this.id}}', '{{this.description}}', '{{this.name}}', '{{this.type}}')"
-                                            title="設定個別警報">
-                                        <i class="fas fa-cog"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {{/each}}
-                </div>
-                {{else}}
-                <p class="text-muted text-center py-3">尚無感測器資料</p>
-                {{/if}}
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6">
+<!-- 攝影機輪播設定 (新) -->
+<div class="row">
+    <div class="col-12 mb-4">
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-fan me-2"></i>設備列表
-                </h6>
+                <h5 class="mb-0"><i class="fas fa-video me-2"></i>攝影機輪播設定</h5>
             </div>
             <div class="card-body">
-                {{#if farm.devices}}
-                <div class="list-group">
-                    {{#each farm.devices}}
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>{{this.name}}</strong>
-                            <br>
-                            <small class="text-muted">類型: {{this.type}}</small>
-                            {{#if this.deviceName}}
-                            <br>
-                            <small class="text-muted">設備: {{this.deviceName}}</small>
-                            {{/if}}
-                        </div>
-                        <div class="text-end">
-                            <span class="badge {{statusBadge this.status}} rounded-pill mb-1">{{this.status}}</span>
-                            <br>
-                            <small class="text-muted">{{this.x}}, {{this.y}}</small>
-                        </div>
-                    </div>
-                    {{/each}}
+                <div id="carousel-settings-container">
+                    <p class="text-muted">正在載入分配至此場域的攝影機...</p>
                 </div>
-                {{else}}
-                <p class="text-muted text-center py-3">尚無設備資料</p>
-                {{/if}}
+            </div>
+            <div class="card-footer text-end">
+                <button id="save-carousel-btn" class="btn btn-primary" disabled>
+                    <i class="fas fa-save me-1"></i> 儲存輪播設定
+                </button>
             </div>
         </div>
     </div>
 </div>
 
+
+<!-- WebSocket 和感測器/設備互動的 JavaScript -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
 // 2D 佈局編輯功能
 document.addEventListener('DOMContentLoaded', function() {
@@ -1284,6 +1149,183 @@ function updateConfigIndicator(sensorId, hasConfig) {
 function adjustOverlayToImage(img) {
     console.log('Farm Detail: adjustOverlayToImage 被調用，但在此頁面不執行任何操作');
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const farmId = '{{farm._id}}';
+    const carouselContainer = document.getElementById('camera-carousel-container');
+    const settingsContainer = document.getElementById('carousel-settings-container');
+    const saveBtn = document.getElementById('save-carousel-btn');
+    
+    let carouselPlayers = [];
+
+    const api = {
+        get: (url) => fetch(url).then(res => res.json()),
+        post: (url, body) => fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        }).then(res => res.json())
+    };
+
+    const loadCarouselSettings = async () => {
+        try {
+            const res = await api.get(`/api/farms/${farmId}/cameras`);
+            if (!res.success) {
+                settingsContainer.innerHTML = '<p class="text-danger">無法載入攝影機列表。</p>';
+                return;
+            }
+
+            const assignedCameras = res.cameras;
+            const selectedCameras = {{json farm.carouselCameras}};
+
+            if (assignedCameras.length === 0) {
+                settingsContainer.innerHTML = '<p class="text-muted">沒有分配給此場域的攝影機。請先至<a href="/onvif-cameras">攝影機管理頁面</a>進行分配。</p>';
+                return;
+            }
+
+            let checkboxesHTML = '<p>請選擇最多兩隻攝影機以在上方進行輪播顯示：</p>';
+            assignedCameras.forEach(cam => {
+                const isChecked = selectedCameras.includes(cam.ip);
+                checkboxesHTML += `
+                    <div class="form-check">
+                        <input class="form-check-input carousel-cam-checkbox" type="checkbox" value="${cam.ip}" id="cam-${cam.ip.replace(/\./g, '-')}" ${isChecked ? 'checked' : ''}>
+                        <label class="form-check-label" for="cam-${cam.ip.replace(/\./g, '-')}">
+                            ${cam.hostname || cam.ip}
+                        </label>
+                    </div>
+                `;
+            });
+            settingsContainer.innerHTML = checkboxesHTML;
+            saveBtn.disabled = false;
+
+            // 綁定 checkbox 限制選擇數量的事件
+            const checkboxes = document.querySelectorAll('.carousel-cam-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    const checkedCount = document.querySelectorAll('.carousel-cam-checkbox:checked').length;
+                    if (checkedCount > 2) {
+                        showToast('warning', '最多只能選擇兩隻攝影機進行輪播。');
+                        checkbox.checked = false;
+                    }
+                });
+            });
+        } catch (e) {
+            settingsContainer.innerHTML = '<p class="text-danger">載入攝影機列表時發生錯誤。</p>';
+        }
+    };
+
+    const saveCarouselSettings = async () => {
+        const selectedIps = Array.from(document.querySelectorAll('.carousel-cam-checkbox:checked')).map(cb => cb.value);
+        
+        try {
+            const res = await api.post(`/api/farms/${farmId}/carousel-cameras`, { cameraIps: selectedIps });
+            if (res.success) {
+                showToast('success', res.message);
+                // 重新載入頁面以應用新的輪播設定
+                location.reload();
+            } else {
+                showToast('error', `儲存失敗: ${res.error}`);
+            }
+        } catch (e) {
+            showToast('error', '儲存設定時發生網路錯誤');
+        }
+    };
+
+    const loadAndRenderCarousel = async () => {
+        carouselContainer.innerHTML = '<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+        
+        const selectedCameras = {{json farm.carouselCameras}};
+        if (!selectedCameras || selectedCameras.length === 0) {
+             carouselContainer.innerHTML = '<div class="text-muted d-flex justify-content-center align-items-center h-100 p-3">此場域尚未設定輪播攝影機。</div>';
+             return;
+        }
+
+        carouselContainer.innerHTML = `
+            <div id="farmCameraCarousel" class="carousel slide h-100" data-bs-ride="carousel">
+                <div class="carousel-inner h-100">
+                    ${selectedCameras.map((ip, index) => `
+                        <div class="carousel-item h-100 ${index === 0 ? 'active' : ''}">
+                            <video id="carousel-video-${ip.replace(/\./g, '-')}" class="d-block w-100 h-100" style="object-fit: cover; background-color: #000;" controls muted autoplay></video>
+                            <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded px-2 py-1">
+                                <h5 class="mb-0">${ip}</h5>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ${selectedCameras.length > 1 ? `
+                <button class="carousel-control-prev" type="button" data-bs-target="#farmCameraCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#farmCameraCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+                ` : ''}
+            </div>
+        `;
+        
+        // 啟動串流並播放
+        startCarouselStreams(selectedCameras);
+    };
+
+    const startCarouselStreams = (ips) => {
+        // 先停止舊的播放器
+        carouselPlayers.forEach(player => {
+            api.post(`/api/onvif/stream/stop/${player.ip}`);
+            if (player.hls) player.hls.destroy();
+        });
+        carouselPlayers = [];
+
+        ips.forEach(async (ip) => {
+            const videoEl = document.getElementById(`carousel-video-${ip.replace(/\./g, '-')}`);
+            if (!videoEl) return;
+
+            try {
+                const res = await api.post(`/api/onvif/stream/start/${ip}`);
+                if (res.success) {
+                    const hls = new Hls();
+                    hls.loadSource(res.stream.playlistUrl);
+                    hls.attachMedia(videoEl);
+                    carouselPlayers.push({ ip, hls });
+                } else {
+                    console.error(`無法啟動輪播攝影機 ${ip} 的串流`);
+                }
+            } catch (e) {
+                 console.error(`啟動輪播串流 ${ip} 失敗:`, e);
+            }
+        });
+    };
+    
+    // 頁面離開時停止所有串流
+    window.addEventListener('beforeunload', () => {
+        carouselPlayers.forEach(player => {
+            api.post(`/api/onvif/stream/stop/${player.ip}`);
+        });
+    });
+
+    saveBtn.addEventListener('click', saveCarouselSettings);
+
+    // 初始化
+    loadCarouselSettings();
+    loadAndRenderCarousel();
+});
+
+function showToast(type, message) {
+    const toastContainer = document.getElementById('toast-container'); // 假設您有這個容器
+    if (!toastContainer) {
+        console.error('Toast container not found!');
+        return;
+    }
+
+    const toast = document.createElement('div');
+    const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-times-circle' : 'fa-info-circle';
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+    toast.innerHTML = `<i class="fas ${icon} me-2"></i>${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+    toastContainer.appendChild(toast);
+    setTimeout(() => bootstrap.Alert.getOrCreateInstance(toast).close(), 5000);
+}
+
 </script>
 
 <!-- 個別感測器配置模態對話框 -->
