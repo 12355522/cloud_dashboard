@@ -2,14 +2,14 @@
 
 const http = require('http');
 
-const CAMERA_IP = '192.168.1.52';
-const CAMERA_PORT = 80;
+const CAMERA_IP = '192.168.1.32';
+const CAMERA_PORT = 554;
 const CAMERA_USER = 'admin';
-const CAMERA_PASS = 'admin';
+const CAMERA_PASS = '';
 const SERVER_URL = 'http://localhost:3000';
 
 console.log('========================================');
-console.log('    攝影機測試腳本 - 192.168.1.52:80');
+console.log('    攝影機測試腳本 - 192.168.1.32:554');
 console.log('========================================\n');
 
 // 發送HTTP請求的輔助函數
