@@ -146,6 +146,33 @@
     </div>
 </div>
 
+<!-- 分配場域 Modal -->
+<div class="modal fade" id="assignFarmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="assignFarmForm" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">分配場域</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                 <input type="hidden" id="assign-ip">
+                 <p>請為攝影機 <strong id="assign-ip-display"></strong> 選擇一個場域：</p>
+                 <div class="mb-3">
+                     <label for="farm-select" class="form-label">可用場域</label>
+                     <select id="farm-select" class="form-select" required>
+                         <!-- 場域列表將動態載入 -->
+                         <option value="">載入場域中...</option>
+                     </select>
+                 </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="submit" class="btn btn-primary">確認分配</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Toast 通知容器 -->
 <div id="toast-container"></div>
 
@@ -167,6 +194,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const addDeviceModalEl = document.getElementById('addDeviceModal');
     const addDeviceModal = new bootstrap.Modal(addDeviceModalEl);
     const addDeviceForm = document.getElementById('addDeviceForm');
+
+    const assignFarmModalEl = document.getElementById('assignFarmModal');
+    const assignFarmModal = new bootstrap.Modal(assignFarmModalEl);
+    const assignFarmForm = document.getElementById('assignFarmForm');
 
     let hls;
 
@@ -307,6 +338,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
+    const handleAssignFarm = async (ip, farmId, farmName) => {
+        try {
+            const res = await api.post(`/api/onvif/devices/${ip}/assign-farm`, { farmId, farmName });
+            if (res.success) {
+                showToast('success', res.message);
+                loadDevices(); // 分配成功後重新載入列表以更新資訊
+            } else {
+                showToast('error', `分配失敗: ${res.error}`);
+            }
+        } catch (e) {
+            showToast('error', '分配場域時發生網路錯誤');
+        }
+    };
+
     const handlePlayStream = async (ip, port) => {
         streamLoading.classList.remove('d-none');
         streamVideo.classList.add('d-none');
@@ -347,8 +392,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let footer;
         if (isSaved) {
             footer = `
-                <button class="btn btn-sm btn-success" onclick="app.playStream('${device.ip}', ${device.port})"><i class="fas fa-play me-1"></i> 播放</button>
-                <button class="btn btn-sm btn-outline-danger" onclick="app.removeDevice('${device.ip}')"><i class="fas fa-trash"></i> 移除</button>
+                <div class="btn-group w-100">
+                    <button class="btn btn-sm btn-success" onclick="app.playStream('${device.ip}', ${device.port})"><i class="fas fa-play me-1"></i> 播放</button>
+                    <button class="btn btn-sm btn-outline-info" onclick="app.showAssignModal('${device.ip}')"><i class="fas fa-industry me-1"></i> 分配</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="app.removeDevice('${device.ip}')"><i class="fas fa-trash"></i></button>
+                </div>
             `;
         } else {
             footer = `
@@ -362,19 +410,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         return `
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h6 class="mb-0 text-truncate">${device.hostname || device.ip}</h6>
                     <span class="badge rounded-pill bg-light text-dark border"><span class="status-dot ${badgeClass}"></span>${badgeText}</span>
                 </div>
                 <div class="card-body">
                     <p class="text-muted mb-2"><i class="fas fa-network-wired me-2"></i>${device.ip}:${device.port}</p>
                     ${isSaved ? `
+                    <p class="text-muted mb-2"><i class="fas fa-industry me-2"></i>場域: <strong>${device.farmName || '未分配'}</strong></p>
                     <p class="text-muted mb-2"><i class="fas fa-video me-2"></i>串流: ${device.streamUri ? '✅' : '❌'}</p>
                     <p class="text-muted mb-0"><i class="fas fa-camera me-2"></i>快照: ${device.snapshotUri ? '✅' : '❌'}</p>
                     ` : `<p class="text-muted">點擊下方按鈕將此攝影機新增至您的系統中進行管理。</p>`}
                 </div>
-                <div class="card-footer d-flex flex-column">${footer}</div>
+                <div class="card-footer">${footer}</div>
             </div>
         `;
     };
@@ -446,6 +495,32 @@ document.addEventListener('DOMContentLoaded', () => {
         addDeviceModal.show();
     };
 
+    const showAssignFarmModal = async (ip) => {
+        document.getElementById('assign-ip').value = ip;
+        document.getElementById('assign-ip-display').textContent = ip;
+        
+        const farmSelect = document.getElementById('farm-select');
+        farmSelect.innerHTML = '<option value="">載入場域中...</option>';
+        farmSelect.disabled = true;
+        
+        assignFarmModal.show();
+
+        try {
+            const res = await api.get('/api/farms/list');
+            if (res.success && res.farms.length > 0) {
+                farmSelect.innerHTML = '<option value="">請選擇一個場域</option>';
+                res.farms.forEach(farm => {
+                    farmSelect.innerHTML += `<option value="${farm._id}" data-name="${farm.name}">${farm.name}</option>`;
+                });
+                farmSelect.disabled = false;
+            } else {
+                farmSelect.innerHTML = '<option value="">沒有可用的場域</option>';
+            }
+        } catch (e) {
+            farmSelect.innerHTML = '<option value="">載入場域失敗</option>';
+        }
+    };
+
 
     // --- Event Listeners ---
 
@@ -462,6 +537,22 @@ document.addEventListener('DOMContentLoaded', () => {
         addDeviceModal.hide();
     });
 
+    assignFarmForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const ip = document.getElementById('assign-ip').value;
+        const farmSelect = document.getElementById('farm-select');
+        const selectedOption = farmSelect.options[farmSelect.selectedIndex];
+        const farmId = selectedOption.value;
+        const farmName = selectedOption.getAttribute('data-name');
+
+        if (farmId) {
+            handleAssignFarm(ip, farmId, farmName);
+            assignFarmModal.hide();
+        } else {
+            showToast('error', '請選擇一個有效的場域');
+        }
+    });
+
     streamModalEl.addEventListener('hidden.bs.modal', () => {
         // Modal 關閉時停止串流
         const ipMatch = document.getElementById('streamModalTitle').textContent.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
@@ -474,6 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.app = {
         addDevice: (ip, port) => handleAddDevice(ip, port, 'admin', ''), // 預設無密碼
         showAddModal: showAddWithPasswordModal,
+        showAssignModal: showAssignFarmModal,
         removeDevice: handleRemoveDevice,
         playStream: handlePlayStream
     };

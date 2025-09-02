@@ -611,6 +611,44 @@ app.get('/api/onvif/devices', (req, res) => {
     }
 });
 
+// [API] 獲取簡化場域列表 (新)
+app.get('/api/farms/list', async (req, res) => {
+    try {
+        const farms = await Farm.find({}, '_id name').lean();
+        res.json({ success: true, farms });
+    } catch (error) {
+        res.status(500).json({ success: false, error: '無法獲取場域列表' });
+    }
+});
+
+// [API] 更新場域的輪播攝影機設定 (新)
+app.post('/api/farms/:id/carousel-cameras', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { cameraIps } = req.body;
+
+        if (!Array.isArray(cameraIps)) {
+            return res.status(400).json({ success: false, error: 'cameraIps 必須是一個陣列' });
+        }
+        if (cameraIps.length > 2) {
+            return res.status(400).json({ success: false, error: '最多只能選擇兩隻攝影機進行輪播' });
+        }
+
+        const farm = await Farm.findById(id);
+        if (!farm) {
+            return res.status(404).json({ success: false, error: '找不到指定的場域' });
+        }
+
+        farm.carouselCameras = cameraIps;
+        await farm.save();
+
+        res.json({ success: true, message: `場域 ${farm.name} 的輪播攝影機已更新` });
+    } catch (error) {
+        console.error(`❌ 更新場域 ${req.params.id} 的輪播攝影機失敗:`, error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // [API] 觸發探索並回傳最新設備列表
 app.post('/api/onvif/discover', async (req, res) => {
     try {
@@ -619,6 +657,26 @@ app.post('/api/onvif/discover', async (req, res) => {
         res.json({ success: true, devices });
     } catch (error) {
         res.status(500).json({ success: false, error: '探索攝影機失敗: ' + error.message });
+    }
+});
+
+// [API] 為攝影機分配場域 (新)
+app.post('/api/onvif/devices/:ip/assign-farm', (req, res) => {
+    try {
+        const { ip } = req.params;
+        const { farmId, farmName } = req.body;
+        if (!farmId || !farmName) {
+            return res.status(400).json({ success: false, error: '缺少 farmId 或 farmName' });
+        }
+        
+        const success = onvifService.assignFarm(ip, farmId, farmName);
+        if (success) {
+            res.json({ success: true, message: `攝影機 ${ip} 已分配至場域 ${farmName}` });
+        } else {
+            res.status(404).json({ success: false, error: `找不到攝影機 ${ip}` });
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

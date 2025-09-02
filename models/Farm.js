@@ -61,6 +61,7 @@ const farmSchema = new mongoose.Schema({
     layout_image: { type: String },
     sensors: [sensorSchema],
     devices: [deviceSchema],
+    carouselCameras: { type: [String], default: [] }, // 新增：輪播攝影機IP列表
     stats: { type: statsSchema, default: () => ({}) },
     mqtt_topic_prefix: { type: String }, // MQTT 主題前綴
     status: { 
