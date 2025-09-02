@@ -72,12 +72,7 @@ class MQTTBroker {
             }
             
             if (client) {
-                console.log(`📨 收到來自 ${client.id} 的訊息:`, {
-                    topic: packet.topic,
-                    payload: packet.payload.toString(),
-                    qos: packet.qos,
-                    retain: packet.retain
-                });
+                
             }
         });
 
