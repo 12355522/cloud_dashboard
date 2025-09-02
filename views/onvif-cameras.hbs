@@ -198,6 +198,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const assignFarmModalEl = document.getElementById('assignFarmModal');
     const assignFarmModal = new bootstrap.Modal(assignFarmModalEl);
     const assignFarmForm = document.getElementById('assignFarmForm');
+    if (!assignFarmForm) {
+        console.warn('[AssignFarm] form not found in DOM at init');
+    }
 
     let hls;
 
@@ -542,6 +545,22 @@ document.addEventListener('DOMContentLoaded', () => {
         handleAddDevice(ip, parseInt(port), username, password);
         addDeviceModal.hide();
     });
+
+    // 全域 submit 偵測（診斷用途）
+    document.addEventListener('submit', (ev) => {
+        const t = ev.target && ev.target.id;
+        if (t === 'assignFarmForm') {
+            console.log('[AssignFarm] document submit captured');
+        }
+    }, true);
+
+    // 額外 click 偵測（診斷用途），避免被其他腳本攔截
+    const assignSubmitBtn = assignFarmForm ? assignFarmForm.querySelector('button[type="submit"]') : null;
+    if (assignSubmitBtn) {
+        assignSubmitBtn.addEventListener('click', (ev) => {
+            console.log('[AssignFarm] submit button clicked');
+        }, true);
+    }
 
     assignFarmForm.addEventListener('submit', async (e) => {
         e.preventDefault();
