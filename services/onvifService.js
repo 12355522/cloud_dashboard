@@ -193,7 +193,8 @@ class ONVIFService {
             console.log(`🔄 正在為 ${ip} 分配場域: ${device.farmName} -> ${farmName}`);
             device.farmId = farmId;
             device.farmName = farmName;
-            this.saveDevices(); // 呼叫帶有日誌和鎖的新版儲存函數
+            this.saveDevices();
+            this.loadDevices(); // *** 關鍵修復：儲存後立刻重新載入資料到記憶體 ***
             console.log(`✅ 分配操作完成 for ${ip}.`);
             return true;
         }
@@ -209,6 +210,7 @@ class ONVIFService {
             this.stopStreamConversion(ip);
             this.devices.delete(ip);
             this.saveDevices();
+            this.loadDevices(); // *** 關鍵修復：儲存後立刻重新載入資料到記憶體 ***
             console.log(`🗑️ 攝影機 ${ip} 已被移除`);
             return true;
         }
