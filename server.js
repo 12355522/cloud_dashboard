@@ -6,7 +6,7 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 
 // 載入設定和服務
-const config = require('./config');
+const config = require('./system-config');
 const databaseService = require('./services/database');
 const mqttBroker = require('./services/mqttBroker');
 const mqttClient = require('./services/mqttClient');

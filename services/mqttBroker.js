@@ -1,6 +1,6 @@
 const aedes = require('aedes')();
 const { createServer } = require('aedes-server-factory');
-const config = require('../config');
+const config = require('../system-config');
 
 class MQTTBroker {
     constructor() {

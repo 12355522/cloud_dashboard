@@ -1,5 +1,5 @@
 const mqtt = require('mqtt');
-const config = require('../config');
+const config = require('../system-config');
 const Farm = require('../models/Farm');
 const { getUnitByCode } = require('../unit');
 
