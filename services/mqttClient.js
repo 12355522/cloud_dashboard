@@ -3,12 +3,7 @@ const config = require('../config');
 const Farm = require('../models/Farm');
 const { getUnitByCode } = require('../unit');
 
-// 禁用所有 console 輸出
-console.log = function() {};
-console.error = function() {};
-console.warn = function() {};
-console.info = function() {};
-console.debug = function() {};
+
 
 class MQTTClient {
     constructor() {
@@ -22,7 +17,7 @@ class MQTTClient {
     // 初始化 MQTT 連線
     async initialize() {
         try {
-            console.log('正在連接 MQTT Broker:', config.mqtt.broker);
+
             
                     this.client = mqtt.connect(config.mqtt.broker, {
             ...config.mqtt.options,
@@ -38,13 +33,13 @@ class MQTTClient {
             return new Promise((resolve, reject) => {
                 this.client.on('connect', () => {
                     this.isConnected = true;
-                    console.log('✅ MQTT 客戶端連接成功');
+
                     this.subscribeToDeviceTopics();
                     resolve(this);
                 });
 
                 this.client.on('error', (error) => {
-                    console.error('❌ MQTT 連接錯誤:', error);
+    
                     reject(error);
                 });
 
@@ -56,7 +51,7 @@ class MQTTClient {
                 }, 30000);
             });
         } catch (error) {
-            console.error('MQTT 初始化失敗:', error);
+
             throw error;
         }
     }
@@ -66,27 +61,27 @@ class MQTTClient {
         this.client.on('connect', () => {
             this.isConnected = true;
             this.reconnectAttempts = 0;
-            console.log('MQTT 客戶端已連接');
+
         });
 
         this.client.on('disconnect', () => {
             this.isConnected = false;
-            console.log('MQTT 客戶端已斷線');
+
         });
 
         this.client.on('reconnect', () => {
             this.reconnectAttempts++;
             if (this.reconnectAttempts <= this.maxReconnectAttempts) {
-                console.log(`MQTT 客戶端重新連接中... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
             } else {
-                console.log('MQTT 重連次數已達上限，停止重連');
+
                 this.client.end();
             }
         });
 
         this.client.on('error', (error) => {
             if (this.reconnectAttempts <= this.maxReconnectAttempts) {
-                console.error('MQTT 連接錯誤，將重試連接');
+
             }
         });
 
@@ -123,9 +118,9 @@ class MQTTClient {
                 await this.subscribeToDeviceAll(deviceName);
             }
 
-            console.log(`已訂閱 ${deviceNames.size} 個設備的 MQTT 主題`);
+
         } catch (error) {
-            console.error('訂閱設備主題失敗:', error);
+
         }
     }
 
@@ -141,10 +136,10 @@ class MQTTClient {
             if (!this.subscribedTopics.has(topic)) {
                 this.client.subscribe(topic, (err) => {
                     if (err) {
-                        console.error(`訂閱通用主題 ${topic} 失敗:`, err);
+
                     } else {
                         this.subscribedTopics.add(topic);
-                        console.log(`✅ 已訂閱通用主題: ${topic}`);
+
                     }
                 });
             }
@@ -162,17 +157,17 @@ class MQTTClient {
         // 只有 R 開頭的設備（主機）才訂閱 feeding 主題
         if (deviceName.startsWith('R')) {
             topics.push(`device/${deviceName}/feeding`);
-            console.log(`📡 主機設備 ${deviceName} 將訂閱 feeding 主題`);
+
         }
 
         for (const topic of topics) {
             if (!this.subscribedTopics.has(topic)) {
                 this.client.subscribe(topic, (err) => {
                     if (err) {
-                        console.error(`訂閱主題 ${topic} 失敗:`, err);
+
                     } else {
                         this.subscribedTopics.add(topic);
-                        console.log(`✅ 已訂閱主題: ${topic}`);
+
                     }
                 });
             }
@@ -189,7 +184,7 @@ class MQTTClient {
     // 手動重新訂閱所有主機設備（R開頭）的 feeding 主題
     async resubscribeAllFeedingTopics() {
         try {
-            console.log('🔄 開始重新訂閱所有主機設備的 feeding 主題...');
+
             
             // 取得所有場域的設備名稱
             const farms = await Farm.find({});
@@ -229,20 +224,20 @@ class MQTTClient {
                 if (!this.subscribedTopics.has(feedingTopic)) {
                     this.client.subscribe(feedingTopic, (err) => {
                         if (err) {
-                            console.error(`訂閱主機 feeding 主題 ${feedingTopic} 失敗:`, err);
+    
                         } else {
                             this.subscribedTopics.add(feedingTopic);
-                            console.log(`✅ 已訂閱主機 feeding 主題: ${feedingTopic}`);
+    
                         }
                     });
                     subscribeCount++;
                 } else {
-                    console.log(`⏭️ 主機 feeding 主題已存在: ${feedingTopic}`);
+    
                 }
             }
 
-            console.log(`🎯 完成重新訂閱，新增了 ${subscribeCount} 個主機 feeding 主題訂閱`);
-            console.log(`📊 總共 ${allDeviceNames.size} 個設備名稱，其中 ${hostDeviceNames.size} 個主機設備`);
+
+
             
             return { 
                 allDeviceNames: Array.from(allDeviceNames), 
@@ -250,7 +245,7 @@ class MQTTClient {
                 newSubscriptions: subscribeCount 
             };
         } catch (error) {
-            console.error('重新訂閱主機 feeding 主題失敗:', error);
+
             throw error;
         }
     }
@@ -341,7 +336,7 @@ class MQTTClient {
             // 找到對應的場域
             const farm = await Farm.findByDeviceName(sensorId);
             if (!farm) {
-                console.warn(`找不到感測器 ${sensorId} 對應的場域`);
+    
                 return;
             }
 
@@ -609,7 +604,7 @@ class MQTTClient {
                 description = this.decodeChineseText(DES);
                 sensorName = this.decodeChineseText(name);
             } catch (decodeError) {
-                console.warn('中文解碼失敗，使用原始文字:', decodeError);
+    
                 description = DES || '';
                 sensorName = name || '';
             }
@@ -618,7 +613,7 @@ class MQTTClient {
             const existingSensor = farm.sensors.find(s => s.deviceName === SN);
             
             if (existingSensor) {
-                console.log(`📡 感測器 ${SN} 已存在，更新配置`);
+
                 existingSensor.name = sensorName || `感測器_${SN}`;
                 existingSensor.description = description; // 更新描述欄位
                 existingSensor.lastUpdate = new Date();
@@ -646,10 +641,10 @@ class MQTTClient {
             };
 
             farm.sensors.push(newSensor);
-            console.log(`✅ 已創建感測器: ${sensorName} (${SN}) - ${description}`);
+
             
         } catch (error) {
-            console.error('創建感測器失敗:', error);
+
         }
     }
 
@@ -668,7 +663,7 @@ class MQTTClient {
             
             return encodedText;
         } catch (error) {
-            console.warn('解碼中文失敗:', error);
+
             return encodedText;
         }
     }
