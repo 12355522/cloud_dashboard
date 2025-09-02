@@ -1176,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const assignedCameras = res.cameras;
-            const selectedCameras = {{json farm.carouselCameras}};
+            const selectedCameras = {{{json farm.carouselCameras}}};
 
             if (assignedCameras.length === 0) {
                 settingsContainer.innerHTML = '<p class="text-muted">沒有分配給此場域的攝影機。請先至<a href="/onvif-cameras">攝影機管理頁面</a>進行分配。</p>';
@@ -1234,7 +1234,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const loadAndRenderCarousel = async () => {
         carouselContainer.innerHTML = '<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
         
-        const selectedCameras = {{json farm.carouselCameras}};
+        const selectedCameras = {{{json farm.carouselCameras}}};
         if (!selectedCameras || selectedCameras.length === 0) {
              carouselContainer.innerHTML = '<div class="text-muted d-flex justify-content-center align-items-center h-100 p-3">此場域尚未設定輪播攝影機。</div>';
              return;
