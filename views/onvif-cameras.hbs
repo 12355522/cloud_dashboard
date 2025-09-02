@@ -344,11 +344,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.success) {
                 showToast('success', res.message);
                 loadDevices(); // 分配成功後重新載入列表以更新資訊
+                return true; // 回傳成功狀態
             } else {
                 showToast('error', `分配失敗: ${res.error}`);
+                return false; // 回傳失敗狀態
             }
         } catch (e) {
             showToast('error', '分配場域時發生網路錯誤');
+            return false; // 回傳失敗狀態
         }
     };
 
@@ -537,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addDeviceModal.hide();
     });
 
-    assignFarmForm.addEventListener('submit', (e) => {
+    assignFarmForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const ip = document.getElementById('assign-ip').value;
         const farmSelect = document.getElementById('farm-select');
@@ -545,11 +548,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const farmId = selectedOption.value;
         const farmName = selectedOption.getAttribute('data-name');
 
-        if (farmId) {
-            handleAssignFarm(ip, farmId, farmName);
-            assignFarmModal.hide();
-        } else {
+        if (!farmId) {
             showToast('error', '請選擇一個有效的場域');
+            return;
+        }
+        
+        const submitBtn = assignFarmForm.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>分配中...`;
+
+        const success = await handleAssignFarm(ip, farmId, farmName);
+
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+
+        if (success) {
+            assignFarmModal.hide();
         }
     });
 
