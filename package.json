@@ -8,7 +8,8 @@
     "dev": "nodemon start.js",
     "start:server": "node server.js",
     "install-ffmpeg": "node install-ffmpeg.js",
-    "setup": "npm install && node install-ffmpeg.js"
+    "setup": "npm install && node install-ffmpeg.js",
+    "test-camera": "node test-camera-node.js"
   },
   "dependencies": {
     "aedes": "^0.51.3",

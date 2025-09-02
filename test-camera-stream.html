@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>攝影機串流測試 - 192.168.1.52</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        .camera-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        video {
+            width: 100%;
+            height: auto;
+        }
+        .status-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            color: white;
+            font-size: 12px;
+        }
+        .status-online { background-color: #28a745; }
+        .status-offline { background-color: #dc3545; }
+        .status-loading { background-color: #ffc107; color: #000; }
+    </style>
+</head>
+<body>
+    <div class="container camera-container">
+        <h1 class="text-center mb-4">攝影機串流測試</h1>
+        <h3 class="text-center text-muted mb-4">192.168.1.52:80</h3>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">即時影像</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="video-container">
+                            <video id="streamVideo" controls muted autoplay>
+                                您的瀏覽器不支援影片播放
+                            </video>
+                            <div id="statusIndicator" class="status-indicator status-loading">
+                                載入中...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">控制面板</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button id="connectBtn" class="btn btn-primary" onclick="connectCamera()">
+                                <i class="fas fa-plug"></i> 連接攝影機
+                            </button>
+                            <button id="startStreamBtn" class="btn btn-success" onclick="startStream()" disabled>
+                                <i class="fas fa-play"></i> 開始串流
+                            </button>
+                            <button id="stopStreamBtn" class="btn btn-warning" onclick="stopStream()" disabled>
+                                <i class="fas fa-stop"></i> 停止串流
+                            </button>
+                            <button id="snapshotBtn" class="btn btn-info" onclick="takeSnapshot()" disabled>
+                                <i class="fas fa-camera"></i> 拍攝快照
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">狀態資訊</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusInfo">
+                            <p><strong>攝影機IP:</strong> 192.168.1.52:80</p>
+                            <p><strong>連接狀態:</strong> <span id="connectionStatus">未連接</span></p>
+                            <p><strong>串流狀態:</strong> <span id="streamStatus">未啟動</span></p>
+                            <p><strong>最後更新:</strong> <span id="lastUpdate">-</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">日誌</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="logContainer" style="height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                            <div>等待操作...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
+    
+    <script>
+        const CAMERA_IP = '192.168.1.52';
+        const CAMERA_PORT = 80;
+        const CAMERA_USER = 'admin';
+        const CAMERA_PASS = 'admin';
+        
+        let isConnected = false;
+        let isStreaming = false;
+        let hls = null;
+        
+        // 日誌函數
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            
+            if (type === 'error') {
+                logEntry.style.color = '#dc3545';
+            } else if (type === 'success') {
+                logEntry.style.color = '#28a745';
+            } else if (type === 'warning') {
+                logEntry.style.color = '#ffc107';
+            }
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 更新狀態
+        function updateStatus() {
+            document.getElementById('connectionStatus').textContent = isConnected ? '已連接' : '未連接';
+            document.getElementById('streamStatus').textContent = isStreaming ? '串流中' : '未啟動';
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+            
+            const statusIndicator = document.getElementById('statusIndicator');
+            if (isStreaming) {
+                statusIndicator.textContent = '串流中';
+                statusIndicator.className = 'status-indicator status-online';
+            } else if (isConnected) {
+                statusIndicator.textContent = '已連接';
+                statusIndicator.className = 'status-indicator status-online';
+            } else {
+                statusIndicator.textContent = '未連接';
+                statusIndicator.className = 'status-indicator status-offline';
+            }
+        }
+        
+        // 連接攝影機
+        async function connectCamera() {
+            log('開始連接攝影機...', 'info');
+            updateButtonStates('connecting');
+            
+            try {
+                const response = await fetch('/api/onvif/connect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ip: CAMERA_IP,
+                        port: CAMERA_PORT,
+                        username: CAMERA_USER,
+                        password: CAMERA_PASS
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    isConnected = true;
+                    log('攝影機連接成功！', 'success');
+                    log(`配置檔數量: ${result.camera.profiles}`, 'info');
+                    updateButtonStates('connected');
+                } else {
+                    log(`連接失敗: ${result.error}`, 'error');
+                    updateButtonStates('disconnected');
+                }
+            } catch (error) {
+                log(`連接錯誤: ${error.message}`, 'error');
+                updateButtonStates('disconnected');
+            }
+            
+            updateStatus();
+        }
+        
+        // 開始串流
+        async function startStream() {
+            if (!isConnected) {
+                log('請先連接攝影機', 'warning');
+                return;
+            }
+            
+            log('啟動串流...', 'info');
+            updateButtonStates('streaming');
+            
+            try {
+                const response = await fetch(`/api/onvif/stream/start/${CAMERA_IP}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    isStreaming = true;
+                    log('串流啟動成功！', 'success');
+                    log(`串流URL: ${result.stream.playlistUrl}`, 'info');
+                    
+                    // 播放HLS串流
+                    playHLSStream(result.stream.playlistUrl);
+                } else {
+                    log(`串流啟動失敗: ${result.error}`, 'error');
+                    updateButtonStates('connected');
+                }
+            } catch (error) {
+                log(`串流錯誤: ${error.message}`, 'error');
+                updateButtonStates('connected');
+            }
+            
+            updateStatus();
+        }
+        
+        // 停止串流
+        async function stopStream() {
+            log('停止串流...', 'info');
+            
+            try {
+                const response = await fetch(`/api/onvif/stream/stop/${CAMERA_IP}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    isStreaming = false;
+                    log('串流已停止', 'success');
+                    
+                    // 停止HLS播放
+                    if (hls) {
+                        hls.destroy();
+                        hls = null;
+                    }
+                    
+                    const video = document.getElementById('streamVideo');
+                    video.src = '';
+                    video.load();
+                } else {
+                    log(`停止串流失敗: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                log(`停止串流錯誤: ${error.message}`, 'error');
+            }
+            
+            updateButtonStates('connected');
+            updateStatus();
+        }
+        
+        // 拍攝快照
+        async function takeSnapshot() {
+            if (!isConnected) {
+                log('請先連接攝影機', 'warning');
+                return;
+            }
+            
+            log('拍攝快照...', 'info');
+            
+            try {
+                const response = await fetch(`/api/onvif/snapshot/${CAMERA_IP}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('快照拍攝成功！', 'success');
+                    log(`快照路徑: ${result.snapshot.path}`, 'info');
+                    
+                    // 在新視窗中顯示快照
+                    window.open(result.snapshot.path, '_blank');
+                } else {
+                    log(`快照拍攝失敗: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                log(`快照錯誤: ${error.message}`, 'error');
+            }
+        }
+        
+        // 播放HLS串流
+        function playHLSStream(streamUrl) {
+            const video = document.getElementById('streamVideo');
+            
+            if (Hls.isSupported()) {
+                if (hls) {
+                    hls.destroy();
+                }
+                
+                hls = new Hls();
+                hls.loadSource(streamUrl);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    log('串流載入完成，開始播放', 'success');
+                    video.play().catch(e => {
+                        log(`自動播放失敗: ${e.message}`, 'warning');
+                    });
+                });
+                
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    log(`HLS錯誤: ${data.details}`, 'error');
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = streamUrl;
+                video.addEventListener('loadedmetadata', function() {
+                    log('串流載入完成，開始播放', 'success');
+                    video.play().catch(e => {
+                        log(`自動播放失敗: ${e.message}`, 'warning');
+                    });
+                });
+            } else {
+                log('瀏覽器不支援HLS串流', 'error');
+            }
+        }
+        
+        // 更新按鈕狀態
+        function updateButtonStates(state) {
+            const connectBtn = document.getElementById('connectBtn');
+            const startStreamBtn = document.getElementById('startStreamBtn');
+            const stopStreamBtn = document.getElementById('stopStreamBtn');
+            const snapshotBtn = document.getElementById('snapshotBtn');
+            
+            switch (state) {
+                case 'connecting':
+                    connectBtn.disabled = true;
+                    connectBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 連接中...';
+                    break;
+                case 'connected':
+                    connectBtn.disabled = false;
+                    connectBtn.innerHTML = '<i class="fas fa-plug"></i> 重新連接';
+                    startStreamBtn.disabled = false;
+                    snapshotBtn.disabled = false;
+                    break;
+                case 'streaming':
+                    startStreamBtn.disabled = true;
+                    stopStreamBtn.disabled = false;
+                    break;
+                case 'disconnected':
+                default:
+                    connectBtn.disabled = false;
+                    connectBtn.innerHTML = '<i class="fas fa-plug"></i> 連接攝影機';
+                    startStreamBtn.disabled = true;
+                    stopStreamBtn.disabled = true;
+                    snapshotBtn.disabled = true;
+                    break;
+            }
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('攝影機測試頁面已載入', 'info');
+            log(`目標攝影機: ${CAMERA_IP}:${CAMERA_PORT}`, 'info');
+            updateStatus();
+        });
+    </script>
+</body>
+</html>
