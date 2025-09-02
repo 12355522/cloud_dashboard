@@ -17,6 +17,7 @@ class ONVIFService {
         this.streams = new Map();
         this.snapshots = new Map();
         this.snapshotDir = path.join(__dirname, '../public/snapshots');
+        this.isSaving = false; // 新增：寫入鎖
         
         if (!fs.existsSync(this.snapshotDir)) {
             fs.mkdirSync(this.snapshotDir, { recursive: true });
@@ -49,16 +50,27 @@ class ONVIFService {
 
     // 新增：儲存設備到檔案
     saveDevices() {
+        if (this.isSaving) {
+            console.warn('⚠️  另一個儲存操作正在進行中，本次儲存已跳過以防止衝突。');
+            return;
+        }
+        this.isSaving = true;
+
         try {
+            console.log('💾 [1/2] 開始序列化設備資料...');
             const devicesArray = Array.from(this.devices.values()).map(device => {
-                // 移除不可序列化的 cam 物件
                 const { cam, ...deviceToSave } = device;
                 return deviceToSave;
             });
+            
+            console.log(`💾 [2/2] 準備將 ${devicesArray.length} 台攝影機寫入 ${DEVICES_FILE}...`);
             fs.writeFileSync(DEVICES_FILE, JSON.stringify(devicesArray, null, 2), 'utf8');
-            console.log(`💾 已儲存 ${devicesArray.length} 台攝影機到 ${DEVICES_FILE}`);
+            console.log(`✅ 攝影機設定檔儲存成功！`);
+
         } catch (error) {
             console.error(`❌ 儲存攝影機設定檔失敗:`, error);
+        } finally {
+            this.isSaving = false; // 解除鎖定
         }
     }
 
@@ -178,12 +190,14 @@ class ONVIFService {
     assignFarm(ip, farmId, farmName) {
         if (this.devices.has(ip)) {
             const device = this.devices.get(ip);
+            console.log(`🔄 正在為 ${ip} 分配場域: ${device.farmName} -> ${farmName}`);
             device.farmId = farmId;
             device.farmName = farmName;
-            this.saveDevices();
-            console.log(`✅ 攝影機 ${ip} 已成功分配至場域 ${farmName} (${farmId})`);
+            this.saveDevices(); // 呼叫帶有日誌和鎖的新版儲存函數
+            console.log(`✅ 分配操作完成 for ${ip}.`);
             return true;
         }
+        console.warn(`⚠️  嘗試分配場域失敗: 找不到攝影機 ${ip}`);
         return false;
     }
 
