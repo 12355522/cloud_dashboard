@@ -271,7 +271,8 @@ class ONVIFService {
 
             ffmpegProcess.run();
             this.streams.set(ip, { process: ffmpegProcess, playlistPath: `/streams/${ip}/playlist.m3u8` });
-            setTimeout(() => resolve({ playlistUrl: `/streams/${ip}/playlist.m3u8`, status: 'streaming' }), 3000);
+            // 增加延遲，給FFmpeg足夠的時間生成第一個播放列表檔案
+            setTimeout(() => resolve({ playlistUrl: `/streams/${ip}/playlist.m3u8`, status: 'streaming' }), 5000); // <--- 從 3 秒增加到 5 秒
         });
     }
 
