@@ -614,10 +614,13 @@ app.get('/api/onvif/devices', (req, res) => {
 // [API] 獲取簡化場域列表 (新)
 app.get('/api/farms/list', async (req, res) => {
     try {
+        console.log('🔍 正在查詢場域列表...');
         const farms = await Farm.find({}, '_id name').lean();
+        console.log(`📋 找到 ${farms.length} 個場域:`, farms.map(f => f.name));
         res.json({ success: true, farms });
     } catch (error) {
-        res.status(500).json({ success: false, error: '無法獲取場域列表' });
+        console.error('❌ 獲取場域列表失敗:', error);
+        res.status(500).json({ success: false, error: '無法獲取場域列表: ' + error.message });
     }
 });
 
@@ -677,17 +680,23 @@ app.post('/api/onvif/devices/:ip/assign-farm', (req, res) => {
     try {
         const { ip } = req.params;
         const { farmId, farmName } = req.body;
+        console.log(`🔄 收到分配請求: 攝影機 ${ip} -> 場域 ${farmName} (${farmId})`);
+        
         if (!farmId || !farmName) {
+            console.error('❌ 分配請求參數不完整');
             return res.status(400).json({ success: false, error: '缺少 farmId 或 farmName' });
         }
         
         const success = onvifService.assignFarm(ip, farmId, farmName);
         if (success) {
+            console.log(`✅ 分配成功: ${ip} -> ${farmName}`);
             res.json({ success: true, message: `攝影機 ${ip} 已分配至場域 ${farmName}` });
         } else {
+            console.error(`❌ 分配失敗: 找不到攝影機 ${ip}`);
             res.status(404).json({ success: false, error: `找不到攝影機 ${ip}` });
         }
     } catch (error) {
+        console.error('❌ 分配過程發生異常:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
