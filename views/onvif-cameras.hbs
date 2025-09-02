@@ -1,1207 +1,428 @@
+<!-- onvif-cameras.hbs (V2 Rewrite) -->
+
+<style>
+    .camera-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    .camera-card {
+        transition: all 0.3s ease-in-out;
+        border-width: 1px;
+    }
+    .camera-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .card-header .badge {
+        font-size: 0.8rem;
+    }
+    .card-footer {
+        background-color: #f8f9fa;
+    }
+    .status-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    .status-saved { background-color: var(--bs-success); }
+    .status-discovered { background-color: var(--bs-warning); }
+    .status-streaming { background-color: var(--bs-danger); }
+    .loading-shimmer {
+        background: #f6f7f8;
+        background-image: linear-gradient(to right, #f6f7f8 0%, #edeef1 20%, #f6f7f8 40%, #f6f7f8 100%);
+        background-repeat: no-repeat;
+        background-size: 800px 104px; 
+        display: inline-block;
+        position: relative; 
+        animation: shimmer 1s infinite linear;
+    }
+    @keyframes shimmer {
+        0%{ background-position: -468px 0; }
+        100%{ background-position: 468px 0; }
+    }
+    .shimmer-card {
+        border-color: #e9ecef;
+    }
+    #toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1055;
+        min-width: 300px;
+    }
+</style>
+
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2><i class="fas fa-video me-2"></i>ONVIF 攝影機管理</h2>
-            <div>
-                <button class="btn btn-primary me-2" onclick="discoverCameras()">
-                    <i class="fas fa-search me-1"></i>搜尋攝影機
-                </button>
-                <button class="btn btn-info me-2" onclick="showTestConnectionModal()">
-                    <i class="fas fa-network-wired me-1"></i>測試連接
-                </button>
-                <button class="btn btn-warning me-2" data-bs-toggle="modal" data-bs-target="#batchConnectModal">
-                    <i class="fas fa-link me-1"></i>批量連接
-                </button>
-                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCameraModal">
-                    <i class="fas fa-plus me-1"></i>手動新增
-                </button>
+            <button id="discover-btn" class="btn btn-primary">
+                <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+                <i class="fas fa-search me-1"></i>
+                探索區域網路攝影機
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="camera-grid" class="camera-grid">
+    <!-- 攝影機卡片將動態插入此處 -->
+    <!-- 載入中骨架 -->
+    <div id="loading-skeleton" class="d-none">
+        <div class="card camera-card shimmer-card">
+            <div class="card-body">
+                <div class="h-100 loading-shimmer" style="height: 150px; width: 100%;"></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 系統狀態 -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-primary text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">已連接攝影機</h6>
-                        <h3 id="connectedCount">{{cameras.length}}</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-video fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-success text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">串流中</h6>
-                        <h3 id="streamingCount">{{streamingCount}}</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-broadcast-tower fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-info text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">快照數量</h6>
-                        <h3 id="snapshotCount">{{snapshotCount}}</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-camera fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-warning text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">發現的攝影機</h6>
-                        <h3 id="discoveredCount">0</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-search fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<div id="empty-state" class="text-center py-5 d-none">
+    <i class="fas fa-broadcast-tower fa-4x text-muted mb-3"></i>
+    <h5 class="text-muted">未找到任何攝影機</h5>
+    <p class="text-muted">請點擊右上角的「探索」按鈕來搜尋您網路中的ONVIF攝影機。</p>
 </div>
 
-<!-- 攝影機列表 -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">攝影機列表</h5>
-            </div>
-            <div class="card-body">
-                <div id="cameraList">
-                    {{#if cameras.length}}
-                        <div class="row" id="camerasGrid">
-                            {{#each cameras}}
-                            <div class="col-md-6 col-lg-4 mb-4" data-camera-ip="{{ip}}">
-                                <div class="card h-100">
-                                    <div class="card-header d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-0">{{ip}}:{{port}}</h6>
-                                        <span class="badge {{#if connected}}bg-success{{else if discovered}}bg-warning{{else}}bg-secondary{{/if}}">
-                                            {{#if connected}}已連接{{else if discovered}}已發現{{else}}離線{{/if}}
-                                        </span>
-                                    </div>
-                                    <div class="card-body">
-                                        {{#if lastSnapshot}}
-                                        <div class="text-center mb-3">
-                                            <img src="{{lastSnapshot.path}}" class="img-fluid rounded snapshot-preview" 
-                                                 alt="攝影機快照" style="max-height: 150px; cursor: pointer;"
-                                                 onclick="showFullSnapshot('{{lastSnapshot.path}}')">
-                                            <small class="text-muted d-block mt-1">
-                                                {{formatDate lastSnapshot.timestamp}}
-                                            </small>
-                                        </div>
-                                        {{else}}
-                                        <div class="text-center mb-3">
-                                            <div class="bg-light rounded d-flex align-items-center justify-content-center" 
-                                                 style="height: 150px;">
-                                                <i class="fas fa-video fa-3x text-muted"></i>
-                                            </div>
-                                        </div>
-                                        {{/if}}
-                                        
-                                        {{#if info.Manufacturer}}
-                                        <p class="mb-1"><strong>製造商:</strong> {{info.Manufacturer}}</p>
-                                        {{/if}}
-                                        {{#if info.Model}}
-                                        <p class="mb-1"><strong>型號:</strong> {{info.Model}}</p>
-                                        {{/if}}
-                                        <p class="mb-1"><strong>配置檔:</strong> {{profiles}} 個</p>
-                                        <p class="mb-1"><strong>串流:</strong> 
-                                            {{#if hasStream}}
-                                                <span class="text-success">可用</span>
-                                            {{else}}
-                                                <span class="text-muted">未設定</span>
-                                            {{/if}}
-                                        </p>
-                                        <p class="mb-3"><strong>快照:</strong> 
-                                            {{#if hasSnapshot}}
-                                                <span class="text-success">可用</span>
-                                            {{else}}
-                                                <span class="text-muted">未設定</span>
-                                            {{/if}}
-                                        </p>
-                                    </div>
-                                    <div class="card-footer">
-                                        <div class="btn-group w-100" role="group">
-                                            {{#if connected}}
-                                                <button class="btn btn-sm btn-outline-primary" 
-                                                        onclick="captureSnapshot('{{ip}}')"
-                                                        {{#unless hasSnapshot}}disabled{{/unless}}>
-                                                    <i class="fas fa-camera"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-success" 
-                                                        onclick="{{#if isStreaming}}stopStream{{else}}startStream{{/if}}('{{ip}}')"
-                                                        {{#unless hasStream}}disabled{{/unless}}>
-                                                    <i class="fas fa-{{#if isStreaming}}stop{{else}}play{{/if}}"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-info" 
-                                                        onclick="viewStream('{{ip}}')"
-                                                        {{#unless isStreaming}}disabled{{/unless}}>
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger" 
-                                                        onclick="disconnectCamera('{{ip}}')">
-                                                    <i class="fas fa-unlink"></i>
-                                                </button>
-                                            {{else}}
-                                                <button class="btn btn-sm btn-primary w-100" onclick="connectDiscoveredCamera('{{ip}}')">
-                                                    <i class="fas fa-plug me-1"></i>連接
-                                                </button>
-                                            {{/if}}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            {{/each}}
-                        </div>
-                    {{else}}
-                        <div class="text-center py-5">
-                            <i class="fas fa-video fa-4x text-muted mb-3"></i>
-                            <h5 class="text-muted">尚未連接任何攝影機</h5>
-                            <p class="text-muted">點擊「搜尋攝影機」或「手動新增」來開始</p>
-                        </div>
-                    {{/if}}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- 新增攝影機模態框 -->
-<div class="modal fade" id="addCameraModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">新增ONVIF攝影機</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="addCameraForm">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="cameraIp" class="form-label">IP位址 *</label>
-                        <input type="text" class="form-control" id="cameraIp" required 
-                               placeholder="例如: 192.168.1.100">
-                    </div>
-                    <div class="mb-3">
-                        <label for="cameraPort" class="form-label">連接埠</label>
-                        <input type="number" class="form-control" id="cameraPort" value="80" 
-                               min="1" max="65535">
-                    </div>
-                    <div class="mb-3">
-                        <label for="cameraUsername" class="form-label">使用者名稱</label>
-                        <input type="text" class="form-control" id="cameraUsername" 
-                               placeholder="攝影機登入帳號">
-                    </div>
-                    <div class="mb-3">
-                        <label for="cameraPassword" class="form-label">密碼</label>
-                        <input type="password" class="form-control" id="cameraPassword" 
-                               placeholder="攝影機登入密碼">
-                    </div>
-                    <div class="form-text">
-                        <i class="fas fa-info-circle me-1"></i>
-                        請確保攝影機支援ONVIF協議並已啟用
-                    </div>
-                    <div class="mt-3">
-                        <button type="button" class="btn btn-outline-info btn-sm" onclick="testCameraConnection()">
-                            <i class="fas fa-network-wired me-1"></i>測試網路連接
-                        </button>
-                        <small class="text-muted d-block mt-1">點擊測試攝影機是否可達</small>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-plus me-1"></i>新增攝影機
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- 串流檢視模態框 -->
+<!-- 串流播放 Modal -->
 <div class="modal fade" id="streamModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">攝影機串流</h5>
+                <h5 class="modal-title" id="streamModalTitle">攝影機串流</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body text-center">
-                <video id="streamVideo" class="w-100" controls style="max-height: 400px;">
-                    您的瀏覽器不支援影片播放
-                </video>
-                <div id="streamInfo" class="mt-2 text-muted"></div>
+            <div class="modal-body text-center bg-dark p-0">
+                <video id="streamVideo" class="w-100" controls autoplay muted style="max-height: 60vh;"></video>
+                <div id="stream-loading" class="text-white p-5 d-none">
+                    <div class="spinner-border mb-3" role="status"></div>
+                    <div>正在啟動串流，請稍候...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增攝影機 Modal (用於有密碼的情況) -->
+<div class="modal fade" id="addDeviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="addDeviceForm" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增攝影機</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                 <div class="alert alert-info">大部分攝影機可使用預設值直接新增。</div>
+                 <input type="hidden" id="add-ip">
+                 <input type="hidden" id="add-port">
+                 <div class="mb-3">
+                     <label class="form-label">IP 位址</label>
+                     <input type="text" id="add-ip-display" class="form-control" disabled>
+                 </div>
+                 <div class="mb-3">
+                     <label for="add-username" class="form-label">使用者名稱</label>
+                     <input type="text" id="add-username" class="form-control" value="admin">
+                 </div>
+                 <div class="mb-3">
+                     <label for="add-password" class="form-label">密碼</label>
+                     <input type="password" id="add-password" class="form-control" placeholder="留空代表無密碼">
+                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
-                <button type="button" class="btn btn-primary" onclick="addToCarousel()">
-                    <i class="fas fa-plus-circle me-1"></i>加入輪播
-                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="submit" class="btn btn-primary">確認新增</button>
             </div>
-        </div>
+        </form>
     </div>
 </div>
 
-<!-- 快照檢視模態框 -->
-<div class="modal fade" id="snapshotModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">攝影機快照</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body text-center">
-                <img id="fullSnapshot" class="img-fluid" alt="攝影機快照">
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
-                <a id="downloadSnapshot" class="btn btn-primary" download>
-                    <i class="fas fa-download me-1"></i>下載
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 批量連接模態框 -->
-<div class="modal fade" id="batchConnectModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">批量連接攝影機</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="batchConnectForm">
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        將使用相同的認證資訊連接所有已發現的攝影機
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="batchUsername" class="form-label">使用者名稱</label>
-                        <input type="text" class="form-control" id="batchUsername" 
-                               placeholder="攝影機登入帳號" value="admin">
-                    </div>
-                    <div class="mb-3">
-                        <label for="batchPassword" class="form-label">密碼</label>
-                        <input type="password" class="form-control" id="batchPassword" 
-                               placeholder="攝影機登入密碼">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <h6>將要連接的攝影機：</h6>
-                        <div id="batchCameraList" class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
-                            <!-- 動態填充攝影機列表 -->
-                        </div>
-                    </div>
-                    
-                    <div id="batchProgress" class="d-none">
-                        <h6>連接進度：</h6>
-                        <div class="progress mb-2">
-                            <div id="batchProgressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
-                        </div>
-                        <div id="batchStatus">準備開始...</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="submit" class="btn btn-warning">
-                        <i class="fas fa-link me-1"></i>開始批量連接
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- 載入指示器 -->
-<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" 
-     style="background: rgba(0,0,0,0.5); z-index: 9999;">
-    <div class="d-flex justify-content-center align-items-center h-100">
-        <div class="text-center text-white">
-            <div class="spinner-border mb-3" role="status"></div>
-            <div id="loadingText">處理中...</div>
-        </div>
-    </div>
-</div>
+<!-- Toast 通知容器 -->
+<div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
-let currentStreamIp = null;
+document.addEventListener('DOMContentLoaded', () => {
 
-// 搜尋攝影機
-async function discoverCameras() {
-    showOnvifLoading('搜尋攝影機中...');
+    const cameraGrid = document.getElementById('camera-grid');
+    const discoverBtn = document.getElementById('discover-btn');
+    const loadingSkeleton = document.getElementById('loading-skeleton');
+    const emptyState = document.getElementById('empty-state');
     
-    try {
-        const response = await fetch('/api/onvif/discover', {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            const discoveredCountElement = document.getElementById('discoveredCount');
-            if (discoveredCountElement) {
-                discoveredCountElement.textContent = result.cameras.length;
-            }
-            showToast('success', `發現 ${result.cameras.length} 台攝影機`);
-            
-            // 動態更新攝影機列表，而不是重新整理頁面
-            updateCameraList();
-        } else {
-            showToast('error', result.error || '搜尋失敗');
-        }
-    } catch (error) {
-        console.error('搜尋攝影機錯誤:', error);
-        showToast('error', '搜尋攝影機失敗');
-    } finally {
-        hideOnvifLoading();
-    }
-}
+    const streamModalEl = document.getElementById('streamModal');
+    const streamModal = new bootstrap.Modal(streamModalEl);
+    const streamVideo = document.getElementById('streamVideo');
+    const streamLoading = document.getElementById('stream-loading');
+    
+    const addDeviceModalEl = document.getElementById('addDeviceModal');
+    const addDeviceModal = new bootstrap.Modal(addDeviceModalEl);
+    const addDeviceForm = document.getElementById('addDeviceForm');
 
-// 新增攝影機
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM載入完成，開始綁定表單事件');
-    
-    const addCameraForm = document.getElementById('addCameraForm');
-    console.log('📋 找到表單元素:', addCameraForm);
-    
-    if (addCameraForm) {
-        console.log('✅ 綁定表單提交事件');
-        addCameraForm.addEventListener('submit', async (e) => {
-            console.log('📤 表單提交觸發');
-            e.preventDefault();
-            
-            const formData = {
-                ip: document.getElementById('cameraIp').value.trim(),
-                port: parseInt(document.getElementById('cameraPort').value) || 80,
-                username: document.getElementById('cameraUsername').value,
-                password: document.getElementById('cameraPassword').value
-            };
-            
-            // 移除舊的錯誤訊息
-            const modalBody = document.querySelector('#addCameraModal .modal-body');
-            const existingError = modalBody.querySelector('.alert');
-            if (existingError) {
-                existingError.remove();
-            }
+    let hls;
 
-            // 驗證輸入
-            if (!formData.ip) {
-                showToast('error', '請輸入攝影機IP位址');
-                return;
-            }
-            // 簡單的IP格式驗證
-            const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
-            if (!ipRegex.test(formData.ip)) {
-                showToast('error', '請輸入有效的IP位址格式');
-                return;
-            }
-            
-            showOnvifLoading('連接攝影機中，請稍候...');
-            
-            try {
-                const response = await fetch('/api/onvif/connect', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                });
-                
-                // 檢查HTTP回應是否成功
-                if (!response.ok) {
-                    let errorText = `HTTP ${response.status}: ${response.statusText}`;
-                    try {
-                        // 嘗試解析後端可能回傳的JSON錯誤訊息
-                        const errorResult = await response.json();
-                        errorText = errorResult.error || errorText;
-                    } catch (e) {
-                        // 如果回應不是JSON格式，則使用原始狀態文字
-                    }
-                    throw new Error(errorText);
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showToast('success', '攝影機連接成功');
-                    
-                    const addCameraModal = bootstrap.Modal.getInstance(document.getElementById('addCameraModal'));
-                    if (addCameraModal) {
-                        addCameraModal.hide();
-                    }
-                    
-                    addCameraForm.reset();
-                    
-                    // 立即更新攝影機列表
-                    updateCameraList();
-                } else {
-                    // 處理來自後端的業務邏輯錯誤
-                    throw new Error(result.error || '未知的後端錯誤');
-                }
-            } catch (error) {
-                console.error('❌ 連接攝影機時發生錯誤:', error);
-                showToast('error', `連接失敗: ${error.message}`);
-                
-                // 在模態框中顯示詳細的錯誤訊息和建議
-                const errorDetails = document.createElement('div');
-                errorDetails.className = 'alert alert-danger mt-3';
-                errorDetails.innerHTML = `
-                    <h6><i class="fas fa-exclamation-triangle me-2"></i>連接失敗</h6>
-                    <p><strong>錯誤訊息:</strong> ${error.message}</p>
-                    <hr>
-                    <p class="mb-1"><strong>請檢查以下項目:</strong></p>
-                    <ul>
-                        <li>攝影機IP位址 (<strong>${formData.ip}</strong>) 和端口 (<strong>${formData.port}</strong>) 是否正確。</li>
-                        <li>使用者名稱和密碼是否正確。</li>
-                        <li>攝影機電源是否開啟且網路連線正常。</li>
-                        <li>攝影機是否在與伺服器相同的區域網路內。</li>
-                        <li>防火牆是否允許伺服器與攝影機之間的通訊。</li>
-                    </ul>
-                `;
-                
-                modalBody.appendChild(errorDetails);
+    // --- Core Functions ---
 
-            } finally {
-                hideOnvifLoading();
-            }
-        });
-    } else {
-        console.error('❌ 找不到表單元素');
-    }
-});
-
-// 拍攝快照
-async function captureSnapshot(ip) {
-    showOnvifLoading('拍攝快照中...');
-    
-    try {
-        const response = await fetch(`/api/onvif/snapshot/${ip}`, {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showToast('success', '快照拍攝成功');
-            
-            // 更新快照預覽
-            const cameraCard = document.querySelector(`[data-camera-ip="${ip}"]`);
-            if (cameraCard) {
-                const snapshotPreview = cameraCard.querySelector('.snapshot-preview');
-                if (snapshotPreview) {
-                    snapshotPreview.src = result.snapshot.path + '?t=' + Date.now();
-                }
-            }
-            
-            // 更新快照數量
-            updateSnapshotCount();
-        } else {
-            showToast('error', result.error || '拍攝失敗');
-        }
-    } catch (error) {
-        console.error('拍攝快照錯誤:', error);
-        showToast('error', '拍攝快照失敗');
-    } finally {
-        hideOnvifLoading();
-    }
-}
-
-// 開始串流
-async function startStream(ip) {
-    showOnvifLoading('啟動串流中...');
-    
-    try {
-        const response = await fetch(`/api/onvif/stream/start/${ip}`, {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showToast('success', '串流啟動成功');
-            
-            // 更新按鈕狀態
-            const cameraCard = document.querySelector(`[data-camera-ip="${ip}"]`);
-            if (cameraCard) {
-                const streamBtn = cameraCard.querySelector('button[onclick*="startStream"]');
-                if (streamBtn) {
-                    streamBtn.innerHTML = '<i class="fas fa-stop"></i>';
-                    streamBtn.setAttribute('onclick', `stopStream('${ip}')`);
-                }
-                
-                // 啟用檢視按鈕
-                const viewBtn = cameraCard.querySelector('button[onclick*="viewStream"]');
-                if (viewBtn) {
-                    viewBtn.disabled = false;
-                }
-            }
-            
-            updateStreamingCount();
-        } else {
-            showToast('error', result.error || '啟動失敗');
-        }
-    } catch (error) {
-        console.error('啟動串流錯誤:', error);
-        showToast('error', '啟動串流失敗');
-    } finally {
-        hideOnvifLoading();
-    }
-}
-
-// 停止串流
-async function stopStream(ip) {
-    try {
-        const response = await fetch(`/api/onvif/stream/stop/${ip}`, {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showToast('success', '串流已停止');
-            
-            // 更新按鈕狀態
-            const cameraCard = document.querySelector(`[data-camera-ip="${ip}"]`);
-            if (cameraCard) {
-                const streamBtn = cameraCard.querySelector('button[onclick*="stopStream"]');
-                if (streamBtn) {
-                    streamBtn.innerHTML = '<i class="fas fa-play"></i>';
-                    streamBtn.setAttribute('onclick', `startStream('${ip}')`);
-                }
-                
-                // 禁用檢視按鈕
-                const viewBtn = cameraCard.querySelector('button[onclick*="viewStream"]');
-                if (viewBtn) {
-                    viewBtn.disabled = true;
-                }
-            }
-            
-            updateStreamingCount();
-        } else {
-            showToast('error', result.error || '停止失敗');
-        }
-    } catch (error) {
-        console.error('停止串流錯誤:', error);
-        showToast('error', '停止串流失敗');
-    }
-}
-
-// 檢視串流
-function viewStream(ip) {
-    currentStreamIp = ip;
-    const streamUrl = `/streams/${ip}/playlist.m3u8`;
-    const video = document.getElementById('streamVideo');
-    const streamInfo = document.getElementById('streamInfo');
-    const streamModal = document.getElementById('streamModal');
-    
-    if (video) {
-        if (Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(streamUrl);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                video.play().catch(e => console.warn('自動播放失敗:', e));
-            });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = streamUrl;
-            video.addEventListener('loadedmetadata', function() {
-                video.play().catch(e => console.warn('自動播放失敗:', e));
-            });
-        }
-    }
-    
-    if (streamInfo) {
-        streamInfo.textContent = `串流來源: ${ip}`;
-    }
-    
-    if (streamModal) {
-        new bootstrap.Modal(streamModal).show();
-    }
-}
-
-// 連接已發現的攝影機
-async function connectDiscoveredCamera(ip) {
-    console.log('🔌 嘗試連接攝影機:', ip);
-    
-    // 顯示連接表單
-    const addCameraModal = document.getElementById('addCameraModal');
-    console.log('📋 模態框元素:', addCameraModal);
-    
-    if (addCameraModal) {
-        // 預填IP位址
-        const ipInput = document.getElementById('cameraIp');
-        console.log('📝 IP輸入框:', ipInput);
-        
-        if (ipInput) {
-            ipInput.value = ip;
-            console.log('✅ IP已預填:', ip);
-        }
-        
-        // 檢查Bootstrap是否可用
-        if (typeof bootstrap !== 'undefined') {
-            console.log('✅ Bootstrap可用，創建模態框實例');
-            const modal = new bootstrap.Modal(addCameraModal);
-            modal.show();
-            console.log('✅ 模態框已顯示');
-        } else {
-            console.error('❌ Bootstrap不可用');
-            // 嘗試直接顯示
-            addCameraModal.classList.add('show');
-            addCameraModal.style.display = 'block';
-            addCameraModal.setAttribute('aria-hidden', 'false');
-            console.log('⚠️ 使用備用方法顯示模態框');
-        }
-    } else {
-        console.error('❌ 找不到模態框元素');
-    }
-}
-
-// 斷開攝影機
-async function disconnectCamera(ip) {
-    if (!confirm('確定要斷開此攝影機嗎？')) return;
-    
-    try {
-        const response = await fetch(`/api/onvif/disconnect/${ip}`, {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showToast('success', '攝影機已斷開');
-            
-            // 更新攝影機列表
-            updateCameraList();
-        } else {
-            showToast('error', result.error || '斷開失敗');
-        }
-    } catch (error) {
-        console.error('斷開攝影機錯誤:', error);
-        showToast('error', '斷開攝影機失敗');
-    }
-}
-
-// 顯示完整快照
-function showFullSnapshot(imagePath) {
-    const fullSnapshot = document.getElementById('fullSnapshot');
-    const downloadSnapshot = document.getElementById('downloadSnapshot');
-    const snapshotModal = document.getElementById('snapshotModal');
-    
-    if (fullSnapshot) {
-        fullSnapshot.src = imagePath;
-    }
-    
-    if (downloadSnapshot) {
-        downloadSnapshot.href = imagePath;
-    }
-    
-    if (snapshotModal) {
-        new bootstrap.Modal(snapshotModal).show();
-    }
-}
-
-// 加入輪播
-async function addToCarousel() {
-    if (!currentStreamIp) return;
-    
-    try {
-        const response = await fetch('/api/carousel/add-camera', {
+    const api = {
+        get: (url) => fetch(url).then(res => res.json()),
+        post: (url, body) => fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                ip: currentStreamIp,
-                streamUrl: `/streams/${currentStreamIp}/playlist.m3u8`
-            })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        }).then(res => res.json()),
+        delete: (url) => fetch(url, { method: 'DELETE' }).then(res => res.json())
+    };
+
+    const render = (devices) => {
+        cameraGrid.innerHTML = '';
+        if (devices.length === 0) {
+            emptyState.classList.remove('d-none');
+            return;
+        }
+        emptyState.classList.add('d-none');
+        devices.forEach(device => {
+            const card = document.createElement('div');
+            card.className = 'camera-card';
+            card.innerHTML = createCardHTML(device);
+            cameraGrid.appendChild(card);
         });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showToast('success', '已加入輪播列表');
-            const streamModal = document.getElementById('streamModal');
-            if (streamModal) {
-                const modalInstance = bootstrap.Modal.getInstance(streamModal);
-                if (modalInstance) {
-                    modalInstance.hide();
-                }
+    };
+
+    const loadDevices = async () => {
+        showLoadingSkeleton();
+        try {
+            const res = await api.get('/api/onvif/devices');
+            if (res.success) {
+                render(res.devices);
+            } else {
+                showToast('error', res.error);
             }
-        } else {
-            showToast('error', result.error || '加入失敗');
+        } catch (e) {
+            showToast('error', '無法載入攝影機列表');
+        } finally {
+            hideLoadingSkeleton();
         }
-    } catch (error) {
-        console.error('加入輪播錯誤:', error);
-        showToast('error', '加入輪播失敗');
-    }
-}
-
-// 測試攝影機網路連接
-async function testCameraConnection() {
-    const ip = document.getElementById('cameraIp').value;
-    const port = document.getElementById('cameraPort').value || 80;
+    };
     
-    if (!ip) {
-        showToast('error', '請先輸入攝影機IP位址');
-        return;
-    }
-    
-    console.log('🔍 測試攝影機網路連接:', ip, port);
-    
-    try {
-        const response = await fetch('/api/onvif/test-connection', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ip, port })
-        });
-        
-        const result = await response.json();
-        console.log('📡 網路測試結果:', result);
-        
-        if (result.success && result.reachable) {
-            showToast('success', `攝影機 ${ip} 網路連接正常`);
-        } else {
-            showToast('error', `攝影機 ${ip} 網路連接失敗: ${result.error || '未知錯誤'}`);
-        }
-    } catch (error) {
-        console.error('❌ 網路測試失敗:', error);
-        showToast('error', '網路測試失敗');
-    }
-}
-
-// 工具函數
-function showOnvifLoading(text) {
-    const loadingText = document.getElementById('loadingText');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    
-    if (loadingText) {
-        loadingText.textContent = text;
-    }
-    
-    if (loadingOverlay) {
-        loadingOverlay.classList.remove('d-none');
-    } else {
-        console.warn('載入指示器元素未找到');
-    }
-}
-
-function hideOnvifLoading() {
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    
-    if (loadingOverlay) {
-        loadingOverlay.classList.add('d-none');
-    } else {
-        console.warn('載入指示器元素未找到');
-    }
-}
-
-function showToast(type, message) {
-    // 這裡可以整合現有的通知系統
-    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-    const alertHtml = `
-        <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
-             style="top: 20px; right: 20px; z-index: 10000;">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', alertHtml);
-    
-    // 自動移除
-    setTimeout(() => {
-        const alert = document.querySelector('.alert');
-        if (alert) alert.remove();
-    }, 5000);
-}
-
-function updateCounts() {
-    updateConnectedCount();
-    updateStreamingCount();
-    updateSnapshotCount();
-}
-
-// 動態更新攝影機列表
-async function updateCameraList() {
-    try {
-        console.log('🔄 開始更新攝影機列表...');
-        
-        // 直接使用發現的攝影機資料，而不是調用status API
-        const response = await fetch('/api/onvif/discover', {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        console.log('📡 攝影機發現結果:', result);
-        
-        if (result.success && result.cameras) {
-            const cameraList = document.getElementById('cameraList');
-            if (cameraList) {
-                // 清空現有列表
-                cameraList.innerHTML = '';
-                
-                if (result.cameras.length === 0) {
-                    cameraList.innerHTML = '<div class="text-center text-muted py-4">尚未發現任何攝影機</div>';
-                    return;
-                }
-                
-                console.log(`📹 準備顯示 ${result.cameras.length} 台攝影機`);
-                
-                // 創建攝影機網格
-                const camerasGrid = document.createElement('div');
-                camerasGrid.className = 'row';
-                camerasGrid.id = 'camerasGrid';
-                
-                result.cameras.forEach((camera, index) => {
-                    console.log(`📷 創建攝影機卡片 ${index + 1}:`, camera);
-                    
-                    // 確保攝影機物件有正確的屬性
-                    const normalizedCamera = {
-                        ip: camera.ip || camera.address || 'Unknown',
-                        port: camera.port || 80,
-                        hostname: camera.hostname || camera.ip || camera.address,
-                        connected: camera.connected || false,
-                        discovered: camera.discovered || true,
-                        profiles: camera.profiles || 0,
-                        hasStream: camera.hasStream || false,
-                        hasSnapshot: camera.hasSnapshot || false,
-                        isStreaming: camera.isStreaming || false,
-                        lastSnapshot: camera.lastSnapshot || null,
-                        urn: camera.urn,
-                        xaddrs: camera.xaddrs,
-                        types: camera.types,
-                        scopes: camera.scopes
-                    };
-                    
-                    console.log(`📷 標準化後的攝影機資料:`, normalizedCamera);
-                    const cameraCard = createCameraCard(normalizedCamera);
-                    camerasGrid.appendChild(cameraCard);
-                });
-                
-                cameraList.appendChild(camerasGrid);
-                
-                // 更新計數
-                updateCounts();
-                
-                console.log('✅ 攝影機列表更新完成');
+    const handleDiscover = async () => {
+        setButtonLoading(discoverBtn, true);
+        try {
+            const res = await api.post('/api/onvif/discover');
+            if (res.success) {
+                render(res.devices);
+                showToast('success', `探索完成，找到 ${res.devices.length} 台設備`);
+            } else {
+                showToast('error', res.error);
             }
-        } else {
-            console.error('❌ 攝影機發現失敗:', result.error);
+        } catch (e) {
+            showToast('error', '探索時發生錯誤');
+        } finally {
+            setButtonLoading(discoverBtn, false);
         }
-    } catch (error) {
-        console.error('❌ 更新攝影機列表失敗:', error);
-    }
-}
-
-// 創建攝影機卡片
-function createCameraCard(camera) {
-    const col = document.createElement('div');
-    col.className = 'col-md-6 col-lg-4 mb-4';
-    col.setAttribute('data-camera-ip', camera.ip);
+    };
     
-    const statusBadge = camera.connected ? 'bg-success' : 
-                       camera.discovered ? 'bg-warning' : 'bg-secondary';
-    const statusText = camera.connected ? '已連接' : 
-                      camera.discovered ? '已發現' : '離線';
-    
-    col.innerHTML = `
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0">${camera.ip}:${camera.port}</h6>
-                <span class="badge ${statusBadge}">${statusText}</span>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-6">
-                        <small class="text-muted">配置檔</small>
-                        <div>${camera.profiles || 0}</div>
-                    </div>
-                    <div class="col-6">
-                        <small class="text-muted">串流</small>
-                        <div>${camera.hasStream ? '可用' : '不可用'}</div>
-                    </div>
-                </div>
-                <div class="row mt-2">
-                    <div class="col-6">
-                        <small class="text-muted">快照</small>
-                        <div>${camera.hasSnapshot ? '可用' : '不可用'}</div>
-                    </div>
-                    <div class="col-6">
-                        <small class="text-muted">狀態</small>
-                        <div>${camera.isStreaming ? '串流中' : '靜止'}</div>
-                    </div>
-                </div>
-                ${camera.lastSnapshot ? `
-                <div class="mt-3">
-                    <img src="${camera.lastSnapshot.path}" class="img-fluid snapshot-preview" alt="快照預覽">
-                </div>
-                ` : ''}
-            </div>
-            <div class="card-footer">
-                <div class="btn-group w-100" role="group">
-                    ${!camera.connected ? `
-                    <button class="btn btn-sm btn-primary" onclick="connectDiscoveredCamera('${camera.ip}')">
-                        <i class="fas fa-plug me-1"></i>連接
-                    </button>
-                    ` : `
-                    <button class="btn btn-sm btn-success" onclick="captureSnapshot('${camera.ip}')">
-                        <i class="fas fa-camera me-1"></i>快照
-                    </button>
-                    <button class="btn btn-sm btn-info" onclick="viewStream('${camera.ip}')">
-                        <i class="fas fa-play me-1"></i>檢視
-                    </button>
-                    `}
-                    <button class="btn btn-sm btn-danger" onclick="disconnectCamera('${camera.ip}')">
-                        <i class="fas fa-times me-1"></i>斷開
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    return col;
-}
-
-function updateConnectedCount() {
-    const element = document.getElementById('connectedCount');
-    if (element) {
-        const count = document.querySelectorAll('[data-camera-ip]').length;
-        element.textContent = count;
-    }
-}
-
-function updateStreamingCount() {
-    const element = document.getElementById('streamingCount');
-    if (element) {
-        const count = document.querySelectorAll('button[onclick*="stopStream"]').length;
-        element.textContent = count;
-    }
-}
-
-function updateSnapshotCount() {
-    const element = document.getElementById('snapshotCount');
-    if (element) {
-        const count = document.querySelectorAll('.snapshot-preview').length;
-        element.textContent = count;
-    }
-}
-
-// 批量連接功能
-let discoveredCameras = [];
-
-// 顯示批量連接模態框時，載入攝影機列表
-document.addEventListener('DOMContentLoaded', function() {
-    const batchConnectModal = document.getElementById('batchConnectModal');
-    if (batchConnectModal) {
-        batchConnectModal.addEventListener('show.bs.modal', async function() {
-            await loadBatchCameraList();
-        });
-    }
-    
-    // 綁定批量連接表單
-    const batchConnectForm = document.getElementById('batchConnectForm');
-    if (batchConnectForm) {
-        batchConnectForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await startBatchConnect();
-        });
-    }
-});
-
-// 載入批量連接的攝影機列表
-async function loadBatchCameraList() {
-    try {
-        console.log('🔍 載入批量連接攝影機列表...');
-        
-        const response = await fetch('/api/onvif/discover', {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        
-        if (result.success && result.cameras) {
-            discoveredCameras = result.cameras.filter(cam => !cam.connected);
-            
-            const batchCameraList = document.getElementById('batchCameraList');
-            if (batchCameraList) {
-                if (discoveredCameras.length === 0) {
-                    batchCameraList.innerHTML = '<div class="text-muted text-center py-3">沒有發現未連接的攝影機</div>';
-                } else {
-                    batchCameraList.innerHTML = discoveredCameras.map((cam, index) => `
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="${cam.ip}" id="cam_${index}" checked>
-                            <label class="form-check-label" for="cam_${index}">
-                                ${cam.ip}:${cam.port || 80}
-                                ${cam.hostname ? `(${cam.hostname})` : ''}
-                            </label>
-                        </div>
-                    `).join('');
-                }
+    const handleAddDevice = async (ip, port, username, password) => {
+        showToast('info', `正在新增攝影機 ${ip}...`);
+        try {
+            const res = await api.post('/api/onvif/devices', { ip, port, username, password });
+            if (res.success) {
+                showToast('success', `攝影機 ${ip} 已成功新增並儲存`);
+                loadDevices(); // 重新載入列表
+            } else {
+                showToast('error', `新增失敗: ${res.error}`);
             }
+        } catch (e) {
+            showToast('error', '新增時發生網路錯誤');
         }
-    } catch (error) {
-        console.error('載入攝影機列表失敗:', error);
-        showToast('error', '載入攝影機列表失敗');
-    }
-}
-
-// 開始批量連接
-async function startBatchConnect() {
-    const username = document.getElementById('batchUsername').value;
-    const password = document.getElementById('batchPassword').value;
+    };
     
-    if (!username || !password) {
-        showToast('error', '請輸入用戶名和密碼');
-        return;
-    }
-    
-    // 獲取選中的攝影機
-    const selectedCameras = [];
-    const checkboxes = document.querySelectorAll('#batchCameraList input[type="checkbox"]:checked');
-    checkboxes.forEach(checkbox => {
-        const camera = discoveredCameras.find(cam => cam.ip === checkbox.value);
-        if (camera) {
-            selectedCameras.push(camera);
+    const handleRemoveDevice = async (ip) => {
+        if (!confirm(`確定要從系統中移除攝影機 ${ip} 嗎？`)) return;
+        try {
+            const res = await api.delete(`/api/onvif/devices/${ip}`);
+            if (res.success) {
+                showToast('success', res.message);
+                loadDevices(); // 重新載入列表
+            } else {
+                showToast('error', res.error);
+            }
+        } catch (e) {
+            showToast('error', '移除時發生網路錯誤');
         }
-    });
+    };
     
-    if (selectedCameras.length === 0) {
-        showToast('error', '請選擇要連接的攝影機');
-        return;
-    }
-    
-    console.log(`🚀 開始批量連接 ${selectedCameras.length} 台攝影機`);
-    
-    // 顯示進度條
-    const batchProgress = document.getElementById('batchProgress');
-    const batchProgressBar = document.getElementById('batchProgressBar');
-    const batchStatus = document.getElementById('batchStatus');
-    
-    batchProgress.classList.remove('d-none');
-    
-    let successCount = 0;
-    let failureCount = 0;
-    
-    for (let i = 0; i < selectedCameras.length; i++) {
-        const camera = selectedCameras[i];
-        const progress = Math.round(((i + 1) / selectedCameras.length) * 100);
-        
-        batchProgressBar.style.width = `${progress}%`;
-        batchStatus.textContent = `正在連接 ${camera.ip} (${i + 1}/${selectedCameras.length})...`;
+    const handlePlayStream = async (ip, port) => {
+        streamLoading.classList.remove('d-none');
+        streamVideo.classList.add('d-none');
+        document.getElementById('streamModalTitle').textContent = `攝影機串流 - ${ip}`;
+        streamModal.show();
         
         try {
-            console.log(`🔗 連接攝影機 ${i + 1}/${selectedCameras.length}: ${camera.ip}`);
-            
-            const response = await fetch('/api/onvif/connect', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    ip: camera.ip,
-                    port: camera.port || 80,
-                    username: username,
-                    password: password
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                successCount++;
-                console.log(`✅ 攝影機 ${camera.ip} 連接成功`);
+            const res = await api.post(`/api/onvif/stream/start/${ip}`);
+            if (res.success) {
+                streamLoading.classList.add('d-none');
+                streamVideo.classList.remove('d-none');
+                playHLS(res.stream.playlistUrl);
             } else {
-                failureCount++;
-                console.log(`❌ 攝影機 ${camera.ip} 連接失敗:`, result.error);
+                streamModal.hide();
+                showToast('error', `啟動串流失敗: ${res.error}`);
             }
-        } catch (error) {
-            failureCount++;
-            console.error(`❌ 攝影機 ${camera.ip} 連接異常:`, error);
+        } catch (e) {
+            streamModal.hide();
+            showToast('error', '啟動串流時發生網路錯誤');
         }
-        
-        // 每連接一台攝影機後稍微等待
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+    };
     
-    // 完成
-    batchStatus.textContent = `批量連接完成！成功: ${successCount}, 失敗: ${failureCount}`;
-    
-    if (successCount > 0) {
-        showToast('success', `批量連接完成！成功連接 ${successCount} 台攝影機`);
-        
-        // 更新攝影機列表
-        setTimeout(() => {
-            updateCameraList();
-        }, 2000);
-    }
-    
-    if (failureCount > 0) {
-        showToast('warning', `有 ${failureCount} 台攝影機連接失敗，請檢查認證資訊`);
-    }
-}
+    const handleStopStream = async (ip) => {
+        await api.post(`/api/onvif/stream/stop/${ip}`);
+        if (hls) {
+            hls.destroy();
+            hls = null;
+        }
+    };
 
-// 定期更新狀態
-setInterval(async () => {
-    try {
-        // 使用discover API來獲取最新的攝影機狀態
-        const response = await fetch('/api/onvif/discover', {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        
-        if (result.success && result.cameras) {
-            const connectedCountElement = document.getElementById('connectedCount');
-            const streamingCountElement = document.getElementById('streamingCount');
-            const snapshotCountElement = document.getElementById('snapshotCount');
-            
-            // 計算已連接的攝影機數量
-            const connectedCount = result.cameras.filter(cam => cam.connected).length;
-            const streamingCount = result.cameras.filter(cam => cam.isStreaming).length;
-            const snapshotCount = result.cameras.filter(cam => cam.lastSnapshot).length;
-            
-            if (connectedCountElement) {
-                connectedCountElement.textContent = connectedCount;
-            }
-            if (streamingCountElement) {
-                streamingCountElement.textContent = streamingCount;
-            }
-            if (snapshotCountElement) {
-                snapshotCountElement.textContent = snapshotCount;
-            }
+    // --- UI Helpers ---
+
+    const createCardHTML = (device) => {
+        const isSaved = device.status === 'saved';
+        const badgeClass = isSaved ? 'status-saved' : 'status-discovered';
+        const badgeText = isSaved ? '已儲存' : '新發現';
+
+        let footer;
+        if (isSaved) {
+            footer = `
+                <button class="btn btn-sm btn-success" onclick="app.playStream('${device.ip}', ${device.port})"><i class="fas fa-play me-1"></i> 播放</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="app.removeDevice('${device.ip}')"><i class="fas fa-trash"></i> 移除</button>
+            `;
+        } else {
+            footer = `
+                <button class="btn btn-sm btn-primary w-100" onclick="app.addDevice('${device.ip}', ${device.port})">
+                    <i class="fas fa-plus me-1"></i> 新增至系統 (無密碼)
+                </button>
+                <button class="btn btn-sm btn-outline-secondary w-100 mt-2" onclick="app.showAddModal('${device.ip}', ${device.port})">
+                    <i class="fas fa-key me-1"></i> 使用密碼新增
+                </button>
+            `;
         }
-    } catch (error) {
-        console.warn('更新狀態失敗:', error);
-    }
-}, 30000); // 每30秒更新一次
+        
+        return `
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 text-truncate">${device.hostname || device.ip}</h6>
+                    <span class="badge rounded-pill bg-light text-dark border"><span class="status-dot ${badgeClass}"></span>${badgeText}</span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-2"><i class="fas fa-network-wired me-2"></i>${device.ip}:${device.port}</p>
+                    ${isSaved ? `
+                    <p class="text-muted mb-2"><i class="fas fa-video me-2"></i>串流: ${device.streamUri ? '✅' : '❌'}</p>
+                    <p class="text-muted mb-0"><i class="fas fa-camera me-2"></i>快照: ${device.snapshotUri ? '✅' : '❌'}</p>
+                    ` : `<p class="text-muted">點擊下方按鈕將此攝影機新增至您的系統中進行管理。</p>`}
+                </div>
+                <div class="card-footer d-flex flex-column">${footer}</div>
+            </div>
+        `;
+    };
+
+    const showLoadingSkeleton = () => {
+        cameraGrid.innerHTML = '';
+        emptyState.classList.add('d-none');
+        for (let i = 0; i < 3; i++) {
+            const skeleton = loadingSkeleton.cloneNode(true);
+            skeleton.classList.remove('d-none');
+            cameraGrid.appendChild(skeleton.firstElementChild);
+        }
+    };
+    
+    const hideLoadingSkeleton = () => {
+        const skeletons = cameraGrid.querySelectorAll('.shimmer-card');
+        skeletons.forEach(s => s.parentElement.remove());
+    };
+
+    const setButtonLoading = (btn, isLoading) => {
+        const spinner = btn.querySelector('.spinner-border');
+        const icon = btn.querySelector('.fas');
+        if (isLoading) {
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            icon.classList.add('d-none');
+        } else {
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+            icon.classList.remove('d-none');
+        }
+    };
+
+    const showToast = (type, message) => {
+        const toastContainer = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-times-circle' : 'fa-info-circle';
+        toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0 show`;
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body"><i class="fas ${icon} me-2"></i>${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        toastContainer.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
+    };
+    
+    const playHLS = (url) => {
+        if (hls) hls.destroy();
+        hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(streamVideo);
+        hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('HLS Error:', data);
+            if (data.fatal) {
+                showToast('error', 'HLS 播放器錯誤');
+                streamModal.hide();
+            }
+        });
+    };
+    
+    const showAddWithPasswordModal = (ip, port) => {
+        document.getElementById('add-ip').value = ip;
+        document.getElementById('add-port').value = port;
+        document.getElementById('add-ip-display').value = `${ip}:${port}`;
+        document.getElementById('add-username').value = 'admin';
+        document.getElementById('add-password').value = '';
+        addDeviceModal.show();
+    };
+
+
+    // --- Event Listeners ---
+
+    discoverBtn.addEventListener('click', handleDiscover);
+    
+    addDeviceForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const ip = document.getElementById('add-ip').value;
+        const port = document.getElementById('add-port').value;
+        const username = document.getElementById('add-username').value;
+        const password = document.getElementById('add-password').value;
+        handleAddDevice(ip, parseInt(port), username, password);
+        addDeviceModal.hide();
+    });
+
+    streamModalEl.addEventListener('hidden.bs.modal', () => {
+        // Modal 關閉時停止串流
+        const ipMatch = document.getElementById('streamModalTitle').textContent.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+        if (ipMatch) {
+            handleStopStream(ipMatch[1]);
+        }
+    });
+
+    // --- Global App Object ---
+    window.app = {
+        addDevice: (ip, port) => handleAddDevice(ip, port, 'admin', ''), // 預設無密碼
+        showAddModal: showAddWithPasswordModal,
+        removeDevice: handleRemoveDevice,
+        playStream: handlePlayStream
+    };
+
+    // --- Initial Load ---
+    loadDevices();
+});
 </script>

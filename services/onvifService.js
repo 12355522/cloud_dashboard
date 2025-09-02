@@ -3,16 +3,58 @@ const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
 const fs = require('fs');
 
+// 新增：持久化儲存路徑
+const DEVICES_FILE = path.join(__dirname, 'onvif-devices.json');
+
 class ONVIFService {
     constructor() {
-        this.cameras = new Map();
+        this.devices = new Map(); // 用於儲存已設定的設備
+        this.discoveredDevices = new Map(); // 僅儲存當次發現的設備
         this.streams = new Map();
         this.snapshots = new Map();
         this.snapshotDir = path.join(__dirname, '../public/snapshots');
         
-        // 確保快照目錄存在
         if (!fs.existsSync(this.snapshotDir)) {
             fs.mkdirSync(this.snapshotDir, { recursive: true });
+        }
+        
+        // 新增：啟動時載入已儲存的設備
+        this.loadDevices();
+    }
+
+    // 新增：從檔案載入設備
+    loadDevices() {
+        try {
+            if (fs.existsSync(DEVICES_FILE)) {
+                const data = fs.readFileSync(DEVICES_FILE, 'utf8');
+                const devicesArray = JSON.parse(data);
+                this.devices.clear();
+                devicesArray.forEach(device => {
+                    // 將 cam 物件設定為 null，因為它不能被序列化
+                    device.cam = null;
+                    this.devices.set(device.ip, device);
+                });
+                console.log(`✅ 成功從 ${DEVICES_FILE} 載入 ${this.devices.size} 台攝影機`);
+            } else {
+                console.log(`📝 ${DEVICES_FILE} 不存在，將在新增設備時自動建立`);
+            }
+        } catch (error) {
+            console.error(`❌ 載入攝影機設定檔失敗:`, error);
+        }
+    }
+
+    // 新增：儲存設備到檔案
+    saveDevices() {
+        try {
+            const devicesArray = Array.from(this.devices.values()).map(device => {
+                // 移除不可序列化的 cam 物件
+                const { cam, ...deviceToSave } = device;
+                return deviceToSave;
+            });
+            fs.writeFileSync(DEVICES_FILE, JSON.stringify(devicesArray, null, 2), 'utf8');
+            console.log(`💾 已儲存 ${devicesArray.length} 台攝影機到 ${DEVICES_FILE}`);
+        } catch (error) {
+            console.error(`❌ 儲存攝影機設定檔失敗:`, error);
         }
     }
 
@@ -20,318 +62,268 @@ class ONVIFService {
      * 發現網路上的ONVIF攝影機
      */
     async discoverCameras(timeout = 5000) {
-        return new Promise((resolve, reject) => {
-            console.log('🔍 開始搜尋ONVIF攝影機...');
-            
-            // 清空之前的發現結果
-            const discoveredCameras = new Map();
-            
-            // 創建一次性事件監聽器，避免重複綁定
-            const deviceHandler = (cam, rinfo, xml) => {
-                const cameraInfo = {
+        return new Promise((resolve) => {
+            this.discoveredDevices.clear();
+            const discovered = new Map();
+
+            const deviceHandler = (cam, rinfo) => {
+                // 避免重複
+                if (discovered.has(rinfo.address)) return;
+
+                const deviceInfo = {
                     ip: rinfo.address,
                     port: cam.port || 80,
                     hostname: cam.hostname,
-                    urn: cam.urn,
-                    xaddrs: cam.xaddrs,
-                    types: cam.types,
-                    scopes: cam.scopes,
-                    connected: false, // 發現但未連接
-                    discovered: true, // 標記為已發現
-                    lastUpdate: new Date()
+                    serviceUrl: cam.xaddrs?.[0]?.href,
                 };
-                
-                console.log('📹 發現攝影機:', {
-                    ip: cameraInfo.ip,
-                    port: cameraInfo.port,
-                    hostname: cameraInfo.hostname,
-                    onvifService: cameraInfo.xaddrs?.[0]?.href || 'N/A',
-                    connected: cameraInfo.connected,
-                    discovered: cameraInfo.discovered
-                });
-                discoveredCameras.set(rinfo.address, cameraInfo);
-                
-                // 同時保存到主攝影機列表
-                this.cameras.set(rinfo.address, cameraInfo);
+                discovered.set(rinfo.address, deviceInfo);
+                console.log(`📹 發現攝影機: ${deviceInfo.ip}`);
             };
-            
-            const errorHandler = (err, xml) => {
-                console.error('ONVIF發現錯誤:', err);
-            };
-            
-            // 綁定事件監聽器
-            onvif.Discovery.on('device', deviceHandler);
-            onvif.Discovery.on('error', errorHandler);
-            
-            // 開始探測
-            console.log('🔍 發送ONVIF探測包...');
-            onvif.Discovery.probe();
-            
-            // 設置超時和清理
-            setTimeout(() => {
-                // 移除事件監聽器
+
+            onvif.Discovery.once('error', (err) => {
+                console.error('ONVIF 發現錯誤:', err);
                 onvif.Discovery.removeListener('device', deviceHandler);
-                onvif.Discovery.removeListener('error', errorHandler);
-                
-                const cameras = Array.from(discoveredCameras.values());
-                console.log(`✅ 發現 ${cameras.length} 台攝影機`);
-                
-                // 如果沒有發現攝影機，提供一些調試信息
-                if (cameras.length === 0) {
-                    console.log('⚠️ 沒有發現攝影機，可能的原因：');
-                    console.log('   - 網路中沒有ONVIF攝影機');
-                    console.log('   - 攝影機不在同一網段');
-                    console.log('   - 防火牆阻擋UDP 3702端口');
-                    console.log('   - 攝影機的ONVIF發現功能未啟用');
-                }
-                
-                resolve(cameras);
+                resolve(Array.from(this.discoveredDevices.values()));
+            });
+            
+            onvif.Discovery.on('device', deviceHandler);
+
+            onvif.Discovery.probe();
+
+            setTimeout(() => {
+                onvif.Discovery.removeListener('device', deviceHandler);
+                this.discoveredDevices = discovered;
+                console.log(`✅ 發現結束，共找到 ${this.discoveredDevices.size} 台獨特攝影機`);
+                resolve(Array.from(this.discoveredDevices.values()));
             }, timeout);
         });
     }
 
     /**
-     * 測試特定IP位址的ONVIF連接
+     * 新增並設定一台攝影機
      */
-    async testCameraConnection(ip, port = 80) {
-        return new Promise((resolve, reject) => {
-            console.log(`🔍 測試攝影機連接: ${ip}:${port}`);
-            
-            try {
-                // 創建一個簡單的連接測試
-                const testCam = new onvif.Cam({
-                    hostname: ip,
-                    port: port,
-                    timeout: 3000
-                }, (err) => {
-                    if (err) {
-                        console.log(`❌ 攝影機 ${ip} 連接測試失敗:`, err.message);
-                        resolve({
-                            ip: ip,
-                            port: port,
-                            reachable: false,
-                            error: err.message
-                        });
-                    } else {
-                        console.log(`✅ 攝影機 ${ip} 連接測試成功`);
-                        resolve({
-                            ip: ip,
-                            port: port,
-                            reachable: true,
-                            message: '攝影機可達'
-                        });
-                    }
-                });
-            } catch (error) {
-                console.log(`❌ 攝影機 ${ip} 連接測試異常:`, error.message);
-                resolve({
-                    ip: ip,
-                    port: port,
-                    reachable: false,
-                    error: error.message
-                });
-            }
-        });
-    }
-
-    /**
-     * 連接到指定的ONVIF攝影機
-     */
-    async connectCamera(ip, port, username, password) {
-        return new Promise((resolve, reject) => {
-            try {
-                const cam = new onvif.Cam({
-                    hostname: ip,
-                    username: username,
-                    password: password,
-                    port: port || 80,
-                    timeout: 10000 // 增加超時時間以容納更多操作
-                }, async (err) => {
-                    if (err) {
-                        console.error(`❌ 連接攝影機失敗 ${ip}:`, err.message);
-                        reject(new Error(`連接攝影機失敗: ${err.message}`));
-                        return;
-                    }
-
-                    console.log(`✅ 成功連接攝影機 ${ip}`);
-                    
-                    try {
-                        const cameraData = {
-                            ip: ip, port: port, username: username, password: password,
-                            cam: cam, info: {}, profiles: [], streamUri: null, snapshotUri: null,
-                            connected: true, lastUpdate: new Date()
-                        };
-
-                        // 1. 獲取設備資訊
-                        console.log(`[1/4] 正在獲取設備資訊 for ${ip}...`);
-                        cameraData.info = await new Promise((res, rej) => {
-                            cam.getDeviceInformation((err, info) => {
-                                if (err) console.warn(`無法獲取 ${ip} 的設備資訊:`, err.message);
-                                res(info || {});
-                            });
-                        });
-
-                        // 2. 獲取媒體配置檔
-                        console.log(`[2/4] 正在獲取媒體配置檔 for ${ip}...`);
-                        cameraData.profiles = await new Promise((res, rej) => {
-                            cam.getProfiles((err, profiles) => {
-                                if (err) return rej(new Error(`獲取配置檔失敗: ${err.message}`));
-                                console.log(`📋 ${ip} 獲取到 ${profiles.length} 個配置檔`);
-                                if (profiles.length === 0) return rej(new Error('未找到任何媒體配置檔'));
-                                res(profiles);
-                            });
-                        });
-                        
-                        const mainProfile = cameraData.profiles[0];
-
-                        // 3. 獲取串流 URI
-                        console.log(`[3/4] 正在獲取串流 URI for ${ip}...`);
-                        const stream = await new Promise((res, rej) => {
-                            cam.getStreamUri({ profileToken: mainProfile.token }, (err, stream) => {
-                                if (err) return rej(new Error(`獲取串流 URI 失敗: ${err.message}`));
-                                res(stream);
-                            });
-                        });
-                        cameraData.streamUri = stream.uri;
-                        console.log(`🎥 ${ip} 的串流 URI: ${cameraData.streamUri}`);
-
-                        // 4. 獲取快照 URI
-                        console.log(`[4/4] 正在獲取快照 URI for ${ip}...`);
-                        try {
-                            const snapshot = await new Promise((res, rej) => {
-                                cam.getSnapshotUri({ profileToken: mainProfile.token }, (err, snapshot) => {
-                                    // 快照功能是可選的，即使失敗也繼續
-                                    if (err) {
-                                        console.warn(`無法獲取 ${ip} 的快照 URI:`, err.message);
-                                        return res(null);
-                                    }
-                                    res(snapshot);
-                                });
-                            });
-                            if (snapshot) {
-                                cameraData.snapshotUri = snapshot.uri;
-                                console.log(`📸 ${ip} 的快照 URI: ${cameraData.snapshotUri}`);
-                            }
-                        } catch (snapshotError) {
-                            console.warn(`獲取 ${ip} 的快照 URI 時發生警告: ${snapshotError.message}`);
-                        }
-
-                        this.cameras.set(ip, cameraData);
-                        console.log(`✅ ${ip} 攝影機已完全配置`);
-                        resolve(cameraData);
-
-                    } catch (configErr) {
-                        console.error(`❌ 配置攝影機 ${ip} 失敗:`, configErr.message);
-                        reject(configErr);
-                    }
-                });
-            } catch (error) {
-                console.error(`❌ 創建ONVIF攝影機實例失敗 ${ip}:`, error.message);
-                reject(error);
-            }
-        });
-    }
-
-    /**
-     * 獲取攝影機的串流配置檔
-     */
-    async getCameraProfiles(ip) {
-        const camera = this.cameras.get(ip);
-        if (!camera || !camera.cam) {
-            throw new Error('攝影機未連接');
+    async addDevice({ ip, port, username, password }) {
+        if (this.devices.has(ip)) {
+            console.log(`📹 攝影機 ${ip} 已存在，將進行更新`);
         }
 
-        return new Promise((resolve, reject) => {
-            camera.cam.getProfiles((err, profiles) => {
+        console.log(`[1/5] 正在連接攝影機 ${ip}...`);
+        const cam = await new Promise((resolve, reject) => {
+            new onvif.Cam({
+                hostname: ip, username, password, port,
+                timeout: 10000
+            }, function(err) {
                 if (err) {
-                    reject(err);
-                    return;
+                    return reject(new Error(`攝影機連接失敗: ${err.message}`));
                 }
+                console.log(`[2/5] 攝影機 ${ip} 連接成功`);
+                resolve(this);
+            });
+        });
 
-                camera.profiles = profiles;
-                console.log(`📋 獲取到 ${profiles.length} 個配置檔`);
+        const deviceData = {
+            ip, port, username, password,
+            cam: cam, info: {}, profiles: [], streamUri: null, snapshotUri: null,
+            connected: true, lastUpdate: new Date(), saved: true
+        };
+
+        console.log(`[3/5] 正在獲取 ${ip} 的媒體配置檔...`);
+        deviceData.profiles = await new Promise((resolve, reject) => {
+            cam.getProfiles((err, profiles) => {
+                if (err || !profiles || profiles.length === 0) {
+                    return reject(new Error('獲取媒體配置檔失敗或配置檔為空'));
+                }
+                console.log(`📋 ${ip} 找到 ${profiles.length} 個配置檔`);
                 resolve(profiles);
             });
         });
-    }
 
-    /**
-     * 獲取串流URI
-     */
-    async getStreamUri(ip, profileIndex = 0) {
-        const camera = this.cameras.get(ip);
-        if (!camera || !camera.cam) {
-            throw new Error('攝影機未連接');
-        }
+        const mainProfile = deviceData.profiles[0];
 
-        if (camera.profiles.length === 0) {
-            await this.getCameraProfiles(ip);
-        }
-
-        const profile = camera.profiles[profileIndex];
-        if (!profile) {
-            throw new Error('配置檔不存在');
-        }
-
-        return new Promise((resolve, reject) => {
-            camera.cam.getStreamUri({
-                stream: 'RTP-Unicast',
-                protocol: 'RTSP',
-                profileToken: profile.token
-            }, (err, stream) => {
-                if (err) {
-                    reject(err);
-                    return;
+        console.log(`[4/5] 正在獲取 ${ip} 的串流 URI...`);
+        deviceData.streamUri = await new Promise((resolve, reject) => {
+            cam.getStreamUri({ profileToken: mainProfile.token }, (err, stream) => {
+                if (err || !stream || !stream.uri) {
+                    return reject(new Error('獲取串流 URI 失敗'));
                 }
-
-                camera.streamUri = stream.uri;
-                console.log(`🎥 獲取串流URI: ${stream.uri}`);
+                console.log(`🎥 ${ip} 的串流 URI: ${stream.uri}`);
                 resolve(stream.uri);
             });
         });
+
+        console.log(`[5/5] 正在獲取 ${ip} 的快照 URI (可選)...`);
+        try {
+            deviceData.snapshotUri = await new Promise((resolve) => {
+                cam.getSnapshotUri({ profileToken: mainProfile.token }, (err, snapshot) => {
+                    if (err || !snapshot || !snapshot.uri) {
+                        console.warn(`無法獲取 ${ip} 的快照 URI，將忽略此錯誤`);
+                        return resolve(null);
+                    }
+                    console.log(`📸 ${ip} 的快照 URI: ${snapshot.uri}`);
+                    resolve(snapshot.uri);
+                });
+            });
+        } catch (e) { /* 忽略快照錯誤 */ }
+
+        this.devices.set(ip, deviceData);
+        this.saveDevices();
+        console.log(`✅ 攝影機 ${ip} 已成功新增並儲存`);
+        
+        // 返回不包含 cam 物件的純資料
+        const { cam: camInstance, ...deviceToReturn } = deviceData;
+        return deviceToReturn;
     }
 
     /**
-     * 獲取快照URI
+     * 移除一台攝影機
      */
-    async getSnapshotUri(ip, profileIndex = 0) {
-        const camera = this.cameras.get(ip);
-        if (!camera || !camera.cam) {
-            throw new Error('攝影機未連接');
+    removeDevice(ip) {
+        if (this.devices.has(ip)) {
+            this.stopStreamConversion(ip);
+            this.devices.delete(ip);
+            this.saveDevices();
+            console.log(`🗑️ 攝影機 ${ip} 已被移除`);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 取得所有設備（已儲存和新發現的）
+     */
+    getDevices() {
+        const allDevices = new Map();
+        
+        // 先加入所有已儲存的設備
+        for (const device of this.devices.values()) {
+            const { cam, ...deviceData } = device;
+            allDevices.set(device.ip, { ...deviceData, status: 'saved' });
         }
 
-        if (camera.profiles.length === 0) {
-            await this.getCameraProfiles(ip);
+        // 再加入新發現且未儲存的設備
+        for (const discovered of this.discoveredDevices.values()) {
+            if (!allDevices.has(discovered.ip)) {
+                allDevices.set(discovered.ip, { ...discovered, status: 'discovered' });
+            }
+        }
+        return Array.from(allDevices.values());
+    }
+
+    /**
+     * 開始串流轉換
+     */
+    async startStreamConversion(ip) {
+        const device = this.devices.get(ip);
+        if (!device || !device.streamUri) {
+            throw new Error('攝影機未設定或無串流URI');
         }
 
-        const profile = camera.profiles[profileIndex];
-        if (!profile) {
-            throw new Error('配置檔不存在');
+        // 重新實例化 cam 物件以確保連線
+        if (!device.cam) {
+            console.log(`Re-instantiating cam for ${ip}`);
+            device.cam = new onvif.Cam({
+                hostname: ip,
+                username: device.username,
+                password: device.password,
+                port: device.port
+            });
         }
+        
+        const outputDir = path.join(__dirname, '../public/streams', ip);
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+        const playlistPath = path.join(outputDir, 'playlist.m3u8');
 
         return new Promise((resolve, reject) => {
-            camera.cam.getSnapshotUri({
-                profileToken: profile.token
-            }, (err, snapshot) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
+            const ffmpegProcess = ffmpeg(device.streamUri)
+                .inputOptions(['-rtsp_transport', 'tcp', '-re'])
+                .outputOptions([
+                    '-c:v', 'copy', // 嘗試直接複製視訊流以降低CPU負載
+                    '-c:a', 'aac',
+                    '-preset', 'ultrafast',
+                    '-tune', 'zerolatency',
+                    '-f', 'hls',
+                    '-hls_time', '2',
+                    '-hls_list_size', '3',
+                    '-hls_flags', 'delete_segments'
+                ])
+                .output(playlistPath)
+                .on('start', (commandLine) => {
+                    console.log(`🎬 開始串流轉換: ${ip}`);
+                })
+                .on('error', (err, stdout, stderr) => {
+                    console.error(`❌ 串流轉換錯誤 ${ip}:`, err.message);
+                     // 如果 'copy' 失敗，嘗試重新編碼
+                    if (err.message.includes('copy')) {
+                        console.log(`⚠️  'copy' 模式失敗，嘗試使用 'libx264' 重新編碼 for ${ip}`);
+                        this.stopStreamConversion(ip);
+                        this.startStreamWithReencode(ip).then(resolve).catch(reject);
+                    } else {
+                        reject(err);
+                    }
+                })
+                .on('end', () => console.log(`✅ 串流轉換結束: ${ip}`));
 
-                camera.snapshotUri = snapshot.uri;
-                console.log(`📸 獲取快照URI: ${snapshot.uri}`);
-                resolve(snapshot.uri);
-            });
+            ffmpegProcess.run();
+            this.streams.set(ip, { process: ffmpegProcess, playlistPath: `/streams/${ip}/playlist.m3u8` });
+            setTimeout(() => resolve({ playlistUrl: `/streams/${ip}/playlist.m3u8`, status: 'streaming' }), 3000);
         });
+    }
+
+    /**
+     * 使用重新編碼來啟動串流 (備用方法)
+     */
+    async startStreamWithReencode(ip) {
+         const device = this.devices.get(ip);
+        if (!device || !device.streamUri) {
+            throw new Error('攝影機未設定或無串流URI');
+        }
+        const outputDir = path.join(__dirname, '../public/streams', ip);
+        const playlistPath = path.join(outputDir, 'playlist.m3u8');
+
+        return new Promise((resolve, reject) => {
+            const ffmpegProcess = ffmpeg(device.streamUri)
+                .inputOptions(['-rtsp_transport', 'tcp', '-re'])
+                .videoCodec('libx264')
+                .audioCodec('aac')
+                .outputOptions(['-preset', 'ultrafast', '-tune', 'zerolatency', '-f', 'hls', '-hls_time', '2', '-hls_list_size', '3', '-hls_flags', 'delete_segments'])
+                .output(playlistPath)
+                .on('start', (commandLine) => console.log(`🎬 [Re-encode] 開始串流轉換: ${ip}`))
+                .on('error', (err) => {
+                    console.error(`❌ [Re-encode] 串流轉換錯誤 ${ip}:`, err.message);
+                    reject(err);
+                })
+                .on('end', () => console.log(`✅ [Re-encode] 串流轉換結束: ${ip}`));
+
+            ffmpegProcess.run();
+            this.streams.set(ip, { process: ffmpegProcess, playlistPath: `/streams/${ip}/playlist.m3u8` });
+            setTimeout(() => resolve({ playlistUrl: `/streams/${ip}/playlist.m3u8`, status: 'streaming' }), 5000); // 重新編碼需要更長啟動時間
+        });
+    }
+
+
+    /**
+     * 停止串流轉換
+     */
+    stopStreamConversion(ip) {
+        const stream = this.streams.get(ip);
+        if (stream && stream.process) {
+            stream.process.kill('SIGTERM');
+            this.streams.delete(ip);
+            console.log(`⏹️ 已停止串流轉換: ${ip}`);
+            return true;
+        }
+        return false;
     }
 
     /**
      * 拍攝快照並儲存到本地
      */
     async captureSnapshot(ip, filename) {
-        const camera = this.cameras.get(ip);
-        if (!camera || !camera.snapshotUri) {
-            throw new Error('攝影機未連接或無快照URI');
+        const device = this.devices.get(ip);
+        if (!device || !device.snapshotUri) {
+            throw new Error('攝影機未設定或無快照URI');
         }
 
         const snapshotPath = path.join(this.snapshotDir, filename || `snapshot_${ip}_${Date.now()}.jpg`);
@@ -341,7 +333,7 @@ class ONVIFService {
             const http = require('http');
             const url = require('url');
             
-            const parsedUrl = url.parse(camera.snapshotUri);
+            const parsedUrl = url.parse(device.snapshotUri);
             const client = parsedUrl.protocol === 'https:' ? https : http;
             
             const options = {
@@ -349,7 +341,7 @@ class ONVIFService {
                 port: parsedUrl.port,
                 path: parsedUrl.path,
                 method: 'GET',
-                auth: `${camera.username}:${camera.password}`
+                auth: `${device.username}:${device.password}`
             };
 
             const req = client.request(options, (res) => {
@@ -394,80 +386,96 @@ class ONVIFService {
     }
 
     /**
-     * 開始串流轉換（RTSP轉HLS）
+     * 獲取攝影機的串流配置檔
      */
-    async startStreamConversion(ip, outputPath) {
-        const camera = this.cameras.get(ip);
-        if (!camera || !camera.streamUri) {
-            throw new Error('攝影機未連接或無串流URI');
+    async getCameraProfiles(ip) {
+        const device = this.devices.get(ip);
+        if (!device || !device.cam) {
+            throw new Error('攝影機未連接');
         }
-
-        const outputDir = path.join(__dirname, '../public/streams', ip);
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-        }
-
-        const playlistPath = path.join(outputDir, 'playlist.m3u8');
 
         return new Promise((resolve, reject) => {
-            const ffmpegProcess = ffmpeg(camera.streamUri)
-                .inputOptions([
-                    '-rtsp_transport', 'tcp',
-                    '-re'
-                ])
-                .outputOptions([
-                    '-c:v', 'libx264',
-                    '-c:a', 'aac',
-                    '-preset', 'ultrafast',
-                    '-tune', 'zerolatency',
-                    '-f', 'hls',
-                    '-hls_time', '2',
-                    '-hls_list_size', '3',
-                    '-hls_flags', 'delete_segments'
-                ])
-                .output(playlistPath)
-                .on('start', (commandLine) => {
-                    console.log(`🎬 開始串流轉換: ${ip}`);
-                    console.log('FFmpeg命令:', commandLine);
-                })
-                .on('error', (err) => {
-                    console.error(`❌ 串流轉換錯誤 ${ip}:`, err.message);
+            device.cam.getProfiles((err, profiles) => {
+                if (err) {
                     reject(err);
-                })
-                .on('end', () => {
-                    console.log(`✅ 串流轉換結束: ${ip}`);
-                });
+                    return;
+                }
 
-            ffmpegProcess.run();
-            
-            this.streams.set(ip, {
-                process: ffmpegProcess,
-                playlistPath: `/streams/${ip}/playlist.m3u8`,
-                startTime: new Date()
+                device.profiles = profiles;
+                console.log(`📋 獲取到 ${profiles.length} 個配置檔`);
+                resolve(profiles);
             });
-
-            // 等待一段時間讓串流開始
-            setTimeout(() => {
-                resolve({
-                    playlistUrl: `/streams/${ip}/playlist.m3u8`,
-                    status: 'streaming'
-                });
-            }, 3000);
         });
     }
 
     /**
-     * 停止串流轉換
+     * 獲取串流URI
      */
-    stopStreamConversion(ip) {
-        const stream = this.streams.get(ip);
-        if (stream && stream.process) {
-            stream.process.kill('SIGTERM');
-            this.streams.delete(ip);
-            console.log(`⏹️ 已停止串流轉換: ${ip}`);
-            return true;
+    async getStreamUri(ip, profileIndex = 0) {
+        const device = this.devices.get(ip);
+        if (!device || !device.cam) {
+            throw new Error('攝影機未連接');
         }
-        return false;
+
+        if (device.profiles.length === 0) {
+            await this.getCameraProfiles(ip);
+        }
+
+        const profile = device.profiles[profileIndex];
+        if (!profile) {
+            throw new Error('配置檔不存在');
+        }
+
+        return new Promise((resolve, reject) => {
+            device.cam.getStreamUri({
+                stream: 'RTP-Unicast',
+                protocol: 'RTSP',
+                profileToken: profile.token
+            }, (err, stream) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                device.streamUri = stream.uri;
+                console.log(`🎥 獲取串流URI: ${stream.uri}`);
+                resolve(stream.uri);
+            });
+        });
+    }
+
+    /**
+     * 獲取快照URI
+     */
+    async getSnapshotUri(ip, profileIndex = 0) {
+        const device = this.devices.get(ip);
+        if (!device || !device.cam) {
+            throw new Error('攝影機未連接');
+        }
+
+        if (device.profiles.length === 0) {
+            await this.getCameraProfiles(ip);
+        }
+
+        const profile = device.profiles[profileIndex];
+        if (!profile) {
+            throw new Error('配置檔不存在');
+        }
+
+        return new Promise((resolve, reject) => {
+            device.cam.getSnapshotUri({
+                profileToken: profile.token
+            }, (err, snapshot) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                device.snapshotUri = snapshot.uri;
+                console.log(`📸 獲取快照URI: ${snapshot.uri}`);
+                resolve(snapshot.uri);
+            });
+        });
     }
 
     /**
@@ -475,22 +483,22 @@ class ONVIFService {
      */
     getConnectedCameras() {
         const cameras = [];
-        for (const [ip, camera] of this.cameras) {
+        for (const [ip, device] of this.devices) {
             // 返回所有攝影機，包括已連接和已發現的
             cameras.push({
                 ip: ip,
-                port: camera.port || 80,
-                info: camera.info || {},
-                profiles: camera.profiles ? camera.profiles.length : 0,
-                hasStream: !!camera.streamUri,
-                hasSnapshot: !!camera.snapshotUri,
+                port: device.port || 80,
+                info: device.info || {},
+                profiles: device.profiles ? device.profiles.length : 0,
+                hasStream: !!device.streamUri,
+                hasSnapshot: !!device.snapshotUri,
                 isStreaming: this.streams.has(ip),
                 lastSnapshot: this.snapshots.get(ip),
-                lastUpdate: camera.lastUpdate,
-                connected: camera.connected || false,
-                discovered: camera.discovered || false,
-                hostname: camera.hostname,
-                urn: camera.urn
+                lastUpdate: device.lastUpdate,
+                connected: device.connected || false,
+                discovered: this.discoveredDevices.has(ip), // 檢查是否是新發現的
+                hostname: device.hostname,
+                urn: device.urn
             });
         }
         return cameras;
@@ -502,9 +510,9 @@ class ONVIFService {
     disconnectCamera(ip) {
         this.stopStreamConversion(ip);
         
-        const camera = this.cameras.get(ip);
-        if (camera) {
-            camera.connected = false;
+        const device = this.devices.get(ip);
+        if (device) {
+            device.connected = false;
             console.log(`🔌 已斷開攝影機連接: ${ip}`);
         }
     }
@@ -535,6 +543,10 @@ class ONVIFService {
                 }
             }
         }
+    }
+
+    getStreamStatus(ip) {
+        return this.streams.has(ip);
     }
 }
 

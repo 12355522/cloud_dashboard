@@ -586,20 +586,14 @@ app.get('/api/dashboard/carousel-data', async (req, res) => {
     }
 });
 
-// ==================== ONVIF 攝影機管理路由 ====================
+// ==================== ONVIF 攝影機管理路由 V2 (重構) ====================
 
 // ONVIF攝影機管理頁面
 app.get('/onvif-cameras', async (req, res) => {
     try {
-        const cameras = onvifService.getConnectedCameras();
-        const streamingCount = cameras.filter(cam => cam.isStreaming).length;
-        const snapshotCount = cameras.filter(cam => cam.lastSnapshot).length;
-        
+        // 頁面渲染時不需要即時的攝影機資料，前端會透過API獲取
         res.render('onvif-cameras', {
-            title: 'ONVIF攝影機管理',
-            cameras: cameras,
-            streamingCount: streamingCount,
-            snapshotCount: snapshotCount
+            title: 'ONVIF攝影機管理 (V2)'
         });
     } catch (error) {
         console.error('載入ONVIF頁面失敗:', error);
@@ -607,215 +601,91 @@ app.get('/onvif-cameras', async (req, res) => {
     }
 });
 
-// 搜尋ONVIF攝影機
+// [API] 取得所有設備 (已儲存和新發現的)
+app.get('/api/onvif/devices', (req, res) => {
+    try {
+        const devices = onvifService.getDevices();
+        res.json({ success: true, devices });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// [API] 觸發探索並回傳最新設備列表
 app.post('/api/onvif/discover', async (req, res) => {
     try {
-        console.log('🔍 開始搜尋ONVIF攝影機...');
-        const cameras = await onvifService.discoverCameras(8000);
-        
-        res.json({
-            success: true,
-            cameras: cameras,
-            message: `發現 ${cameras.length} 台攝影機`
-        });
+        await onvifService.discoverCameras(5000);
+        const devices = onvifService.getDevices();
+        res.json({ success: true, devices });
     } catch (error) {
-        console.error('搜尋攝影機失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: '搜尋攝影機失敗: ' + error.message
-        });
+        res.status(500).json({ success: false, error: '探索攝影機失敗: ' + error.message });
     }
 });
 
-// 測試特定攝影機連接
-app.post('/api/onvif/test-connection', async (req, res) => {
+// [API] 新增一台攝影機到系統
+app.post('/api/onvif/devices', async (req, res) => {
     try {
-        const { ip, port = 80 } = req.body;
-        
+        const { ip, port = 80, username = 'admin', password = '' } = req.body;
         if (!ip) {
-            return res.status(400).json({
-                success: false,
-                error: '請提供攝影機IP位址'
-            });
+            return res.status(400).json({ success: false, error: '請提供IP位址' });
         }
         
-        console.log(`🔍 測試攝影機連接: ${ip}:${port}`);
-        const result = await onvifService.testCameraConnection(ip, port);
-        
-        res.json({
-            success: true,
-            reachable: result.reachable,
-            ip: result.ip,
-            port: result.port,
-            message: result.message,
-            error: result.error
-        });
+        const device = await onvifService.addDevice({ ip, port, username, password });
+        res.status(201).json({ success: true, device });
     } catch (error) {
-        console.error('測試攝影機連接失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: '測試攝影機連接失敗: ' + error.message
-        });
+        console.error(`❌ 新增攝影機 ${req.body.ip} 失敗:`, error.message);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 連接ONVIF攝影機
-app.post('/api/onvif/connect', async (req, res) => {
-    try {
-        const { ip, port, username, password } = req.body;
-        
-        if (!ip) {
-            return res.status(400).json({
-                success: false,
-                error: '請提供攝影機IP位址'
-            });
-        }
-        
-        console.log(`🔗 嘗試連接並配置攝影機: ${ip}:${port || 80}`);
-        
-        // 呼叫已整合的連接函數，它會處理所有配置步驟
-        const camera = await onvifService.connectCamera(ip, port, username, password);
-        
-        // 連接成功後，camera物件已包含所有必要資訊
-        res.json({
-            success: true,
-            camera: {
-                ip: camera.ip,
-                port: camera.port,
-                info: camera.info,
-                profiles: camera.profiles.length,
-                hasStream: !!camera.streamUri,
-                hasSnapshot: !!camera.snapshotUri
-            },
-            message: '攝影機已成功連接並配置'
-        });
-    } catch (error) {
-        console.error(`❌ 連接攝影機 ${req.body.ip} 失敗:`, error.message);
-        // 將詳細錯誤訊息回傳給前端
-        res.status(500).json({
-            success: false,
-            error: error.message || '連接攝影機時發生未知錯誤'
-        });
-    }
-});
-
-// 拍攝快照
-app.post('/api/onvif/snapshot/:ip', async (req, res) => {
+// [API] 從系統移除一台攝影機
+app.delete('/api/onvif/devices/:ip', (req, res) => {
     try {
         const { ip } = req.params;
-        const filename = `snapshot_${ip}_${Date.now()}.jpg`;
-        
-        console.log(`📸 拍攝快照: ${ip}`);
-        const snapshot = await onvifService.captureSnapshot(ip, filename);
-        
-        res.json({
-            success: true,
-            snapshot: snapshot,
-            message: '快照拍攝成功'
-        });
+        const success = onvifService.removeDevice(ip);
+        if (success) {
+            res.json({ success: true, message: `攝影機 ${ip} 已移除` });
+        } else {
+            res.status(404).json({ success: false, error: `找不到攝影機 ${ip}` });
+        }
     } catch (error) {
-        console.error('拍攝快照失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: '拍攝快照失敗: ' + error.message
-        });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 開始串流轉換
+// [API] 開始串流
 app.post('/api/onvif/stream/start/:ip', async (req, res) => {
     try {
         const { ip } = req.params;
-        
-        console.log(`🎬 開始串流轉換: ${ip}`);
         const streamInfo = await onvifService.startStreamConversion(ip);
-        
-        res.json({
-            success: true,
-            stream: streamInfo,
-            message: '串流啟動成功'
-        });
+        res.json({ success: true, stream: streamInfo });
     } catch (error) {
-        console.error('啟動串流失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: '啟動串流失敗: ' + error.message
-        });
+        res.status(500).json({ success: false, error: '啟動串流失敗: ' + error.message });
     }
 });
 
-// 停止串流轉換
-app.post('/api/onvif/stream/stop/:ip', async (req, res) => {
+// [API] 停止串流
+app.post('/api/onvif/stream/stop/:ip', (req, res) => {
     try {
         const { ip } = req.params;
-        
-        console.log(`⏹️ 停止串流轉換: ${ip}`);
         const stopped = onvifService.stopStreamConversion(ip);
-        
         if (stopped) {
-            res.json({
-                success: true,
-                message: '串流已停止'
-            });
+            res.json({ success: true, message: '串流已停止' });
         } else {
-            res.json({
-                success: false,
-                error: '找不到正在運行的串流'
-            });
+            res.status(404).json({ success: false, error: '找不到正在運行的串流' });
         }
     } catch (error) {
-        console.error('停止串流失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: '停止串流失敗: ' + error.message
-        });
+        res.status(500).json({ success: false, error: '停止串流失敗: ' + error.message });
     }
 });
 
-// 斷開攝影機連接
-app.post('/api/onvif/disconnect/:ip', async (req, res) => {
-    try {
-        const { ip } = req.params;
-        
-        console.log(`🔌 斷開攝影機連接: ${ip}`);
-        onvifService.disconnectCamera(ip);
-        
-        res.json({
-            success: true,
-            message: '攝影機已斷開'
-        });
-    } catch (error) {
-        console.error('斷開攝影機失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: '斷開攝影機失敗: ' + error.message
-        });
-    }
+// [API] 獲取串流狀態 (可選，用於前端輪詢)
+app.get('/api/onvif/stream/status/:ip', (req, res) => {
+    const { ip } = req.params;
+    const isStreaming = onvifService.getStreamStatus(ip);
+    res.json({ success: true, ip, isStreaming });
 });
 
-// 獲取ONVIF系統狀態
-app.get('/api/onvif/status', (req, res) => {
-    try {
-        const cameras = onvifService.getConnectedCameras();
-        const connectedCount = cameras.length;
-        const streamingCount = cameras.filter(cam => cam.isStreaming).length;
-        const snapshotCount = cameras.filter(cam => cam.lastSnapshot).length;
-        
-        res.json({
-            success: true,
-            connectedCount: connectedCount,
-            streamingCount: streamingCount,
-            snapshotCount: snapshotCount,
-            cameras: cameras
-        });
-    } catch (error) {
-        console.error('獲取ONVIF狀態失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: '獲取狀態失敗: ' + error.message
-        });
-    }
-});
 
 // ==================== 輪播系統路由 ====================
 
