@@ -145,39 +145,85 @@ class ONVIFService {
                     username: username,
                     password: password,
                     port: port || 80,
-                    timeout: 5000
-                }, (err) => {
+                    timeout: 10000 // 增加超時時間以容納更多操作
+                }, async (err) => {
                     if (err) {
                         console.error(`❌ 連接攝影機失敗 ${ip}:`, err.message);
-                        reject(err);
+                        reject(new Error(`連接攝影機失敗: ${err.message}`));
                         return;
                     }
 
                     console.log(`✅ 成功連接攝影機 ${ip}`);
                     
-                    // 獲取攝影機資訊
-                    cam.getDeviceInformation((err, info) => {
-                        if (err) {
-                            console.warn('無法獲取設備資訊:', err.message);
-                        }
-                        
+                    try {
                         const cameraData = {
-                            ip: ip,
-                            port: port,
-                            username: username,
-                            password: password,
-                            cam: cam,
-                            info: info || {},
-                            profiles: [],
-                            streamUri: null,
-                            snapshotUri: null,
-                            connected: true,
-                            lastUpdate: new Date()
+                            ip: ip, port: port, username: username, password: password,
+                            cam: cam, info: {}, profiles: [], streamUri: null, snapshotUri: null,
+                            connected: true, lastUpdate: new Date()
                         };
 
+                        // 1. 獲取設備資訊
+                        console.log(`[1/4] 正在獲取設備資訊 for ${ip}...`);
+                        cameraData.info = await new Promise((res, rej) => {
+                            cam.getDeviceInformation((err, info) => {
+                                if (err) console.warn(`無法獲取 ${ip} 的設備資訊:`, err.message);
+                                res(info || {});
+                            });
+                        });
+
+                        // 2. 獲取媒體配置檔
+                        console.log(`[2/4] 正在獲取媒體配置檔 for ${ip}...`);
+                        cameraData.profiles = await new Promise((res, rej) => {
+                            cam.getProfiles((err, profiles) => {
+                                if (err) return rej(new Error(`獲取配置檔失敗: ${err.message}`));
+                                console.log(`📋 ${ip} 獲取到 ${profiles.length} 個配置檔`);
+                                if (profiles.length === 0) return rej(new Error('未找到任何媒體配置檔'));
+                                res(profiles);
+                            });
+                        });
+                        
+                        const mainProfile = cameraData.profiles[0];
+
+                        // 3. 獲取串流 URI
+                        console.log(`[3/4] 正在獲取串流 URI for ${ip}...`);
+                        const stream = await new Promise((res, rej) => {
+                            cam.getStreamUri({ profileToken: mainProfile.token }, (err, stream) => {
+                                if (err) return rej(new Error(`獲取串流 URI 失敗: ${err.message}`));
+                                res(stream);
+                            });
+                        });
+                        cameraData.streamUri = stream.uri;
+                        console.log(`🎥 ${ip} 的串流 URI: ${cameraData.streamUri}`);
+
+                        // 4. 獲取快照 URI
+                        console.log(`[4/4] 正在獲取快照 URI for ${ip}...`);
+                        try {
+                            const snapshot = await new Promise((res, rej) => {
+                                cam.getSnapshotUri({ profileToken: mainProfile.token }, (err, snapshot) => {
+                                    // 快照功能是可選的，即使失敗也繼續
+                                    if (err) {
+                                        console.warn(`無法獲取 ${ip} 的快照 URI:`, err.message);
+                                        return res(null);
+                                    }
+                                    res(snapshot);
+                                });
+                            });
+                            if (snapshot) {
+                                cameraData.snapshotUri = snapshot.uri;
+                                console.log(`📸 ${ip} 的快照 URI: ${cameraData.snapshotUri}`);
+                            }
+                        } catch (snapshotError) {
+                            console.warn(`獲取 ${ip} 的快照 URI 時發生警告: ${snapshotError.message}`);
+                        }
+
                         this.cameras.set(ip, cameraData);
+                        console.log(`✅ ${ip} 攝影機已完全配置`);
                         resolve(cameraData);
-                    });
+
+                    } catch (configErr) {
+                        console.error(`❌ 配置攝影機 ${ip} 失敗:`, configErr.message);
+                        reject(configErr);
+                    }
                 });
             } catch (error) {
                 console.error(`❌ 創建ONVIF攝影機實例失敗 ${ip}:`, error.message);
