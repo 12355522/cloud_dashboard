@@ -671,37 +671,30 @@ app.post('/api/onvif/connect', async (req, res) => {
             });
         }
         
-        console.log(`🔗 嘗試連接攝影機: ${ip}:${port || 80}`);
+        console.log(`🔗 嘗試連接並配置攝影機: ${ip}:${port || 80}`);
         
-        // 連接攝影機
+        // 呼叫已整合的連接函數，它會處理所有配置步驟
         const camera = await onvifService.connectCamera(ip, port, username, password);
         
-        // 獲取配置檔
-        await onvifService.getCameraProfiles(ip);
-        
-        // 獲取串流和快照URI
-        try {
-            await onvifService.getStreamUri(ip);
-            await onvifService.getSnapshotUri(ip);
-        } catch (uriError) {
-            console.warn('獲取URI失敗:', uriError.message);
-        }
-        
+        // 連接成功後，camera物件已包含所有必要資訊
         res.json({
             success: true,
             camera: {
                 ip: camera.ip,
                 port: camera.port,
                 info: camera.info,
-                profiles: camera.profiles.length
+                profiles: camera.profiles.length,
+                hasStream: !!camera.streamUri,
+                hasSnapshot: !!camera.snapshotUri
             },
-            message: '攝影機連接成功'
+            message: '攝影機已成功連接並配置'
         });
     } catch (error) {
-        console.error('連接攝影機失敗:', error);
+        console.error(`❌ 連接攝影機 ${req.body.ip} 失敗:`, error.message);
+        // 將詳細錯誤訊息回傳給前端
         res.status(500).json({
             success: false,
-            error: '連接攝影機失敗: ' + error.message
+            error: error.message || '連接攝影機時發生未知錯誤'
         });
     }
 });
